@@ -8,26 +8,58 @@ import ProductSelection from "./pages/ProductSelection";
 import TitleOptimization from "./pages/TitleOptimization";
 import DescriptionOptimization from "./pages/DescriptionOptimization";
 import NotFound from "./pages/NotFound";
+import { useEffect } from "react";
+import { getShopFromUrl } from "./utils/auth";
+import { loginShop } from "./services/authService";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/products" element={<ProductSelection />} />
-          <Route path="/title-optimization" element={<TitleOptimization />} />
-          <Route path="/description-optimization" element={<DescriptionOptimization />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+
+  useEffect(() => {
+    async function authenticateShop() {
+      const shop = getShopFromUrl();
+
+      if (!shop) {
+        console.error("Shop not found in URL");
+        return;
+      }
+
+      // Skip if already authenticated
+      // const token = localStorage.getItem("auth_token");
+      // if (token) return;
+
+      try {
+        const data = await loginShop(shop);
+        localStorage.setItem("auth_token", data.token);
+        localStorage.setItem("shop", JSON.stringify(data.shop));
+
+        console.log("Authenticated shop:", data.shop);
+      } catch (error) {
+        console.error("Auth failed", error);
+      }
+    }
+
+    authenticateShop();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/products" element={<ProductSelection />} />
+            <Route path="/title-optimization" element={<TitleOptimization />} />
+            <Route path="/description-optimization" element={<DescriptionOptimization />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

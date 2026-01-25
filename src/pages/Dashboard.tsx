@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const optimizationTools = [
   {
@@ -87,12 +88,20 @@ const stats = [
 ];
 
 export default function Dashboard() {
+  const [storeDetail,setStoreDetails]=useState({})
+  useEffect(()=>{
+  const handleStore=()=>{
+   const data= JSON.parse(localStorage.getItem("shop"));
+   setStoreDetails(data)
+  }
+  handleStore()
+  },[])
   return (
     <AppLayout title="Dashboard">
       <div className="p-6 space-y-8">
         {/* Welcome Section */}
         <div className="animate-fade-in">
-          <h2 className="text-2xl font-bold text-foreground">Welcome back, John! 👋</h2>
+          <h2 className="text-2xl font-bold text-foreground">Welcome {storeDetail.owner}</h2>
           <p className="text-muted-foreground mt-1">
             Here's an overview of your store's AI optimization status.
           </p>

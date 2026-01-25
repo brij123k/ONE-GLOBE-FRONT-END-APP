@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getApi, postApi } from "@/services/apiService";
 import {
   Select,
   SelectContent,
@@ -19,20 +20,107 @@ import {
   ArrowRight,
   Package,
   Filter,
+  ChevronDown,
+  Loader2,
+  Calendar,
+  Tag,
+  Building,
+  Grid3x3,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import ApiConfig from "@/services/apiConfig";
 
-// Mock product data
-const mockProducts = [
-  { id: "1", title: "Premium Wireless Headphones", sku: "WH-001", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop", status: "active", type: "Electronics", vendor: "TechBrand" },
-  { id: "2", title: "Organic Cotton T-Shirt", sku: "TS-002", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop", status: "active", type: "Apparel", vendor: "EcoWear" },
-  { id: "3", title: "Stainless Steel Water Bottle", sku: "WB-003", image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=100&h=100&fit=crop", status: "draft", type: "Accessories", vendor: "HydrateLife" },
-  { id: "4", title: "Leather Crossbody Bag", sku: "LB-004", image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=100&h=100&fit=crop", status: "active", type: "Accessories", vendor: "LuxBags" },
-  { id: "5", title: "Bluetooth Smart Watch", sku: "SW-005", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop", status: "active", type: "Electronics", vendor: "TechBrand" },
-  { id: "6", title: "Yoga Mat Premium", sku: "YM-006", image: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=100&h=100&fit=crop", status: "active", type: "Fitness", vendor: "FitGear" },
-  { id: "7", title: "Ceramic Coffee Mug Set", sku: "CM-007", image: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=100&h=100&fit=crop", status: "draft", type: "Home", vendor: "CozyHome" },
-  { id: "8", title: "Running Shoes Pro", sku: "RS-008", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop", status: "active", type: "Footwear", vendor: "SprintX" },
-];
+// Types based on API response
+interface Product {
+  id: string;
+  title: string;
+  handle: string;
+  status: string;
+  vendor: string;
+  productType: string;
+  tags: string[];
+  description: string;
+  featuredMedia?: {
+    id: string;
+    preview: {
+      image: {
+        url: string;
+      };
+    };
+  };
+  priceRangeV2: {
+    minVariantPrice: {
+      amount: string;
+      currencyCode: string;
+    };
+    maxVariantPrice: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  createdAt: string;
+  publishedAt: string;
+  updatedAt: string;
+  totalInventory: number;
+  variants: {
+    edges: Array<{
+      node: {
+        sku: string | null;
+      };
+    }>;
+  };
+  category?: {
+    id: string;
+    name: string;
+    fullName: string;
+  };
+}
+
+interface Collection {
+  id: string;
+  title: string;
+  handle: string;
+  productsCount: number;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  fullName: string;
+}
+
+interface FilterState {
+  status: string;
+  type: string;
+  collections: string[];
+  searchField: string;
+  searchQuery: string;
+  vendors: string[];
+  productTypes: string[];
+  tags: string[];
+  categories: string[];
+  createdAfter?: Date;
+  publishedAfter?: Date;
+  updatedAfter?: Date;
+}
+
+interface PageInfo {
+  hasNextPage: boolean;
+  endCursor: string;
+}
 
 const serviceTitles: Record<string, string> = {
   title: "Title Optimization",
@@ -42,6 +130,22 @@ const serviceTitles: Record<string, string> = {
   keywords: "Keywords Optimization",
 };
 
+const searchFields = [
+  { value: "title", label: "Title" },
+  { value: "handle", label: "Handle" },
+  { value: "description", label: "Description" },
+  { value: "vendor", label: "Vendor" },
+  { value: "productType", label: "Type" },
+  { value: "sku", label: "SKU" },
+];
+
+const statusOptions = [
+  { value: "all", label: "All Status" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "ARCHIVED", label: "Archived" },
+];
+
 export default function ProductSelection() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -49,21 +153,165 @@ export default function ProductSelection() {
   
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [vendors, setVendors] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [applyingFilters, setApplyingFilters] = useState(false);
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [filters, setFilters] = useState<FilterState>({
+    status: "all",
+    type: "all",
+    collections: [],
+    searchField: "title",
+    searchQuery: "",
+    vendors: [],
+    productTypes: [],
+    tags: [],
+    categories: [],
+  });
+
+  const [tagSearch, setTagSearch] = useState("");
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  const fetchInitialData = async (reset = true) => {
+    try {
+      setLoading(true);
+      
+      // Fetch products with pagination
+      const productsRes = await getApi(ApiConfig.getProducts, { 
+        limit: 20 
+      });
+      
+      const productsData = productsRes.products.map((p: any) => p.node);
+      setProducts(productsData);
+      setPageInfo(productsRes.pageInfo);
+      setCurrentPage(1);
+
+      // Fetch collections
+      const collectionsRes = await getApi(ApiConfig.getCollections);
+      setCollections(collectionsRes.collections || []);
+
+      // Fetch vendors
+      const vendorsRes = await getApi(ApiConfig.getVendors);
+      setVendors(vendorsRes.vendors || []);
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const loadMoreProducts = async () => {
+    if (!pageInfo?.hasNextPage || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+      const params: any = {
+        after: pageInfo.endCursor,
+        limit: 20,
+      };
+
+      // Apply current filters
+      if (filters.status !== 'all') params.status = filters.status;
+      if (filters.type !== 'all') params.type = filters.type;
+      if (filters.collections.length > 0) params.collections = filters.collections.join(',');
+      if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
+      if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
+      if (filters.tags.length > 0) params.tags = filters.tags.join(',');
+      if (filters.categories.length > 0) params.categories = filters.categories.join(',');
+      if (filters.createdAfter) params.createdAfter = filters.createdAfter.toISOString();
+      if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
+      if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
+      if (filters.searchQuery) {
+        params[filters.searchField] = filters.searchQuery;
+      }
+
+      const productsRes = await getApi(ApiConfig.getProducts, params);
+      const newProducts = productsRes.products.map((p: any) => p.node);
+      
+      setProducts(prev => [...prev, ...newProducts]);
+      setPageInfo(productsRes.pageInfo);
+      setCurrentPage(prev => prev + 1);
+    } catch (error) {
+      console.error('Error loading more products:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const applyFilters = async () => {
+    try {
+      setApplyingFilters(true);
+      const params: any = { limit: 20 };
+
+      if (filters.status !== 'all') params.status = filters.status;
+      if (filters.type !== 'all') params.type = filters.type;
+      if (filters.collections.length > 0) params.collections = filters.collections.join(',');
+      if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
+      if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
+      if (filters.tags.length > 0) params.tags = filters.tags.join(',');
+      if (filters.categories.length > 0) params.categories = filters.categories.join(',');
+      if (filters.createdAfter) params.createdAfter = filters.createdAfter.toISOString();
+      if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
+      if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
+      if (filters.searchQuery) {
+        params[filters.searchField] = filters.searchQuery;
+      }
+
+      const filteredRes = await getApi(ApiConfig.getProducts, params);
+      const filteredData = filteredRes.products.map((p: any) => p.node);
+      setProducts(filteredData);
+      setPageInfo(filteredRes.pageInfo);
+      setSelectedProducts([]); // Clear selection when filters change
+      setCurrentPage(1);
+      setFilterOpen(false);
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
+      setApplyingFilters(false);
+    }
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      status: "all",
+      type: "all",
+      collections: [],
+      searchField: "title",
+      searchQuery: "",
+      vendors: [],
+      productTypes: [],
+      tags: [],
+      categories: [],
+    });
+    fetchInitialData();
+  };
 
   const filteredProducts = useMemo(() => {
-    return mockProducts.filter((product) => {
-      const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" || product.status === statusFilter;
-      const matchesType = typeFilter === "all" || product.type === typeFilter;
+    return products.filter((product) => {
+      const matchesSearch = filters.searchQuery ? 
+        product[filters.searchField as keyof Product]?.toString().toLowerCase().includes(filters.searchQuery.toLowerCase()) : true;
+      
+      const matchesStatus = filters.status === "all" || 
+        product.status.toLowerCase() === filters.status.toLowerCase();
+      
+      const matchesType = filters.type === "all" || product.productType === filters.type;
+      
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [searchQuery, statusFilter, typeFilter]);
-
-  const productTypes = [...new Set(mockProducts.map((p) => p.type))];
+  }, [products, filters]);
 
   const toggleProduct = (id: string) => {
     setSelectedProducts((prev) =>
@@ -79,71 +327,646 @@ export default function ProductSelection() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedProducts.length > 0) {
-      navigate(`/${service}-optimization?products=${selectedProducts.join(",")}`);
+      try {
+        await postApi(ApiConfig.storeProduct, {
+          serviceName: service,
+          productIds: selectedProducts
+        });
+        navigate(`/${service}-optimization?products=${selectedProducts.join(",")}`);
+      } catch (error) {
+        console.error('Error storing products:', error);
+      }
     }
   };
 
+  const getProductTypes = useMemo(() => {
+    const types = new Set(products.map(p => p.productType).filter(Boolean));
+    return Array.from(types);
+  }, [products]);
+
+  const getAllTags = useMemo(() => {
+    const tags = new Set(products.flatMap(p => p.tags).filter(Boolean));
+    return Array.from(tags);
+  }, [products]);
+
+    const filteredTags = useMemo(() => {
+  if (!tagSearch) return getAllTags;
+  return getAllTags.filter(tag => 
+    tag.toLowerCase().includes(tagSearch.toLowerCase())
+  );
+}, [getAllTags, tagSearch]);
+  const getCategories = useMemo(() => {
+    const cats = new Map<string, Category>();
+    products.forEach(p => {
+      if (p.category) {
+        cats.set(p.category.id, p.category);
+      }
+    });
+    return Array.from(cats.values());
+  }, [products]);
+
+  const formatPrice = (amount: string, currencyCode: string) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+    }).format(parseFloat(amount));
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'success';
+      case 'draft': return 'secondary';
+      case 'archived': return 'destructive';
+      default: return 'outline';
+    }
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.status !== 'all') count++;
+    if (filters.type !== 'all') count++;
+    if (filters.collections.length > 0) count++;
+    if (filters.vendors.length > 0) count++;
+    if (filters.productTypes.length > 0) count++;
+    if (filters.tags.length > 0) count++;
+    if (filters.categories.length > 0) count++;
+    if (filters.createdAfter) count++;
+    if (filters.publishedAfter) count++;
+    if (filters.updatedAfter) count++;
+    if (filters.searchQuery) count++;
+    return count;
+  };
+
   return (
-    <AppLayout title={serviceTitles[service] || "Product Selection"}>
+    <AppLayout 
+      title={serviceTitles[service] || "Product Selection"}
+      subtitle="Select products to optimize with AI"
+    >
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Select Products</h2>
+            <h2 className="text-2xl font-bold text-foreground">Select Products</h2>
             <p className="text-muted-foreground text-sm mt-1">
-              Choose products to optimize with AI
+              Choose products to optimize with {serviceTitles[service] || "AI"}
             </p>
           </div>
-          <Button
-            onClick={handleContinue}
-            disabled={selectedProducts.length === 0}
-            className="bg-gradient-ai hover:opacity-90 text-primary-foreground gap-2"
-          >
-            Continue to Optimization
-            <ArrowRight className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="px-3 py-1">
+              {selectedProducts.length} selected
+            </Badge>
+            <Button
+              onClick={handleContinue}
+              disabled={selectedProducts.length === 0}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white gap-2 shadow-lg hover:shadow-xl transition-all"
+            >
+              Continue to Optimization
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by title or SKU..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+        {/* Quick Filter Tabs */}
+        <div className="flex flex-col lg:flex-row gap-4 animate-fade-in">
+          {/* Status Tabs */}
+          <div className="flex-1">
+            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-lg">
+              {statusOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setFilters(prev => ({ ...prev, status: option.value }))}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium rounded-md transition-all",
+                    filters.status === option.value
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Type" />
+
+          {/* Type Filter */}
+          <div className="w-full lg:w-48">
+            <Select 
+              value={filters.type}
+              onValueChange={(value) => setFilters(prev => ({ ...prev, type: value }))}
+            >
+              <SelectTrigger className="w-full bg-white">
+                <SelectValue>
+                  {filters.type === 'all' ? 'All Types' : filters.type}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {productTypes.map((type) => (
+                {getProductTypes.map((type) => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex border border-border rounded-lg overflow-hidden">
+          </div>
+        </div>
+
+        {/* Search and Filters Bar */}
+        <div className="flex flex-col lg:flex-row gap-4 animate-fade-in">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products..."
+              value={filters.searchQuery}
+              onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+              className="pl-9 bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Select 
+              value={filters.searchField}
+              onValueChange={(value) => setFilters(prev => ({ ...prev, searchField: value }))}
+            >
+              <SelectTrigger className="w-36 bg-white">
+                <SelectValue>
+                  <span className="flex items-center gap-2">
+                    <Grid3x3 className="w-3 h-3" />
+                    {searchFields.find(f => f.value === filters.searchField)?.label || 'Title'}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {searchFields.map((field) => (
+                  <SelectItem key={field.value} value={field.value}>
+                    {field.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+        <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
+  <DialogTrigger asChild>
+    <Button variant="outline" className="gap-2">
+      <Filter className="w-4 h-4" />
+      Advanced Filters
+      {getActiveFilterCount() > 0 && (
+        <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+          {getActiveFilterCount()}
+        </Badge>
+      )}
+    </Button>
+  </DialogTrigger>
+  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="text-xl font-bold">Advanced Filters</DialogTitle>
+    </DialogHeader>
+    
+    <div className="space-y-6 py-4">
+      {/* Search Field Selection - Radio Group */}
+      <div className="space-y-3">
+        <Label className="font-medium">Search In</Label>
+        <RadioGroup 
+          value={filters.searchField} 
+          onValueChange={(value) => setFilters(prev => ({ ...prev, searchField: value }))}
+          className="grid grid-cols-2 gap-2"
+        >
+          {searchFields.map((field) => (
+            <div key={field.value} className="flex items-center space-x-2">
+              <RadioGroupItem value={field.value} id={`search-${field.value}`} />
+              <Label htmlFor={`search-${field.value}`} className="text-sm cursor-pointer">
+                {field.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* Collections Filter - Radio Button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium flex items-center gap-2">
+            <Tag className="w-4 h-4" />
+            Collections
+          </Label>
+          {filters.collections.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters(prev => ({ ...prev, collections: [] }))}
+              className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              Clear Selection
+            </Button>
+          )}
+        </div>
+        <RadioGroup 
+          value={filters.collections[0] || ""} 
+          onValueChange={(value) => {
+            if (value === "") {
+              setFilters(prev => ({ ...prev, collections: [] }));
+            } else {
+              setFilters(prev => ({ ...prev, collections: [value] }));
+            }
+          }}
+          className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
+        >
+          <div key="none" className="flex items-center space-x-2">
+            <RadioGroupItem value="" id="collection-none" />
+            <Label htmlFor="collection-none" className="text-sm cursor-pointer text-gray-500">
+              No collection selected
+            </Label>
+          </div>
+          {collections.map((collection) => (
+            <div key={collection.id} className="flex items-center space-x-2">
+              <RadioGroupItem value={collection.id} id={`collection-${collection.id}`} />
+              <Label htmlFor={`collection-${collection.id}`} className="text-sm cursor-pointer">
+                {collection.title} ({collection.productsCount})
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* Vendors Filter - Radio Button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium flex items-center gap-2">
+            <Building className="w-4 h-4" />
+            Vendors
+          </Label>
+          {filters.vendors.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters(prev => ({ ...prev, vendors: [] }))}
+              className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              Clear Selection
+            </Button>
+          )}
+        </div>
+        <RadioGroup 
+          value={filters.vendors[0] || ""} 
+          onValueChange={(value) => {
+            if (value === "") {
+              setFilters(prev => ({ ...prev, vendors: [] }));
+            } else {
+              setFilters(prev => ({ ...prev, vendors: [value] }));
+            }
+          }}
+          className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
+        >
+          <div key="none" className="flex items-center space-x-2">
+            <RadioGroupItem value="" id="vendor-none" />
+            <Label htmlFor="vendor-none" className="text-sm cursor-pointer text-gray-500">
+              No vendor selected
+            </Label>
+          </div>
+          {vendors.map((vendor) => (
+            <div key={vendor} className="flex items-center space-x-2">
+              <RadioGroupItem value={vendor} id={`vendor-${vendor}`} />
+              <Label htmlFor={`vendor-${vendor}`} className="text-sm cursor-pointer">
+                {vendor}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* Product Types Filter - Radio Button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium">Product Types</Label>
+          {filters.productTypes.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters(prev => ({ ...prev, productTypes: [] }))}
+              className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              Clear Selection
+            </Button>
+          )}
+        </div>
+        <RadioGroup 
+          value={filters.productTypes[0] || ""} 
+          onValueChange={(value) => {
+            if (value === "") {
+              setFilters(prev => ({ ...prev, productTypes: [] }));
+            } else {
+              setFilters(prev => ({ ...prev, productTypes: [value] }));
+            }
+          }}
+          className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
+        >
+          <div key="none" className="flex items-center space-x-2">
+            <RadioGroupItem value="" id="type-none" />
+            <Label htmlFor="type-none" className="text-sm cursor-pointer text-gray-500">
+              No type selected
+            </Label>
+          </div>
+          {getProductTypes.map((type) => (
+            <div key={type} className="flex items-center space-x-2">
+              <RadioGroupItem value={type} id={`type-${type}`} />
+              <Label htmlFor={`type-${type}`} className="text-sm cursor-pointer">
+                {type}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* Categories Filter - Radio Button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium">Categories</Label>
+          {filters.categories.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
+              className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              Clear Selection
+            </Button>
+          )}
+        </div>
+        <RadioGroup 
+          value={filters.categories[0] || ""} 
+          onValueChange={(value) => {
+            if (value === "") {
+              setFilters(prev => ({ ...prev, categories: [] }));
+            } else {
+              setFilters(prev => ({ ...prev, categories: [value] }));
+            }
+          }}
+          className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
+        >
+          <div key="none" className="flex items-center space-x-2">
+            <RadioGroupItem value="" id="category-none" />
+            <Label htmlFor="category-none" className="text-sm cursor-pointer text-gray-500">
+              No category selected
+            </Label>
+          </div>
+          {getCategories.map((category) => (
+            <div key={category.id} className="flex items-center space-x-2">
+              <RadioGroupItem value={category.id} id={`category-${category.id}`} />
+              <Label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
+                {category.name}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* Tags Filter - Radio Button with Search */}
+      <div className="space-y-2">
+  <div className="flex items-center justify-between">
+    <Label className="font-medium">Tags</Label>
+    {filters.tags.length > 0 && (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setFilters(prev => ({ ...prev, tags: [] }))}
+        className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+      >
+        Clear Selection
+      </Button>
+    )}
+  </div>
+  
+  {/* Tag Search Input */}
+  <div className="relative">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <Input
+      placeholder="Search tags..."
+      value={tagSearch}
+      onChange={(e) => setTagSearch(e.target.value)}
+      className="pl-9"
+    />
+    {tagSearch && (
+      <button
+        onClick={() => setTagSearch("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2"
+      >
+        <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+      </button>
+    )}
+  </div>
+  
+  {/* Tags Radio Group */}
+  <div className="relative">
+    <RadioGroup 
+      value={filters.tags[0] || ""} 
+      onValueChange={(value) => {
+        if (value === "") {
+          setFilters(prev => ({ ...prev, tags: [] }));
+        } else {
+          setFilters(prev => ({ ...prev, tags: [value] }));
+        }
+      }}
+      className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
+    >
+      <div key="none" className="flex items-center space-x-2">
+        <RadioGroupItem value="" id="tag-none" />
+        <Label htmlFor="tag-none" className="text-sm cursor-pointer text-gray-500">
+          No tag selected
+        </Label>
+      </div>
+      {filteredTags.length > 0 ? (
+        filteredTags.map((tag) => (
+          <div key={tag} className="flex items-center space-x-2">
+            <RadioGroupItem value={tag} id={`tag-${tag}`} />
+            <Label htmlFor={`tag-${tag}`} className="text-sm cursor-pointer">
+              {tag}
+            </Label>
+          </div>
+        ))
+      ) : (
+        <div className="col-span-2 text-center py-4 text-sm text-gray-500">
+          No tags found matching "{tagSearch}"
+        </div>
+      )}
+    </RadioGroup>
+  </div>
+</div>
+
+      {/* Date Filters */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label className="font-medium flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Created After
+          </Label>
+          <DatePicker
+            date={filters.createdAfter}
+            onSelect={(date) => setFilters(prev => ({ ...prev, createdAfter: date }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="font-medium flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Published After
+          </Label>
+          <DatePicker
+            date={filters.publishedAfter}
+            onSelect={(date) => setFilters(prev => ({ ...prev, publishedAfter: date }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="font-medium flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Updated After
+          </Label>
+          <DatePicker
+            date={filters.updatedAfter}
+            onSelect={(date) => setFilters(prev => ({ ...prev, updatedAfter: date }))}
+          />
+        </div>
+      </div>
+
+      {/* Active Filters Summary */}
+      {getActiveFilterCount() > 0 && (
+        <div className="pt-4 border-t">
+          <Label className="font-medium mb-2">Active Filters:</Label>
+          <div className="flex flex-wrap gap-2">
+            {filters.status !== 'all' && (
+              <Badge variant="secondary" className="gap-1">
+                Status: {statusOptions.find(s => s.value === filters.status)?.label}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
+                />
+              </Badge>
+            )}
+            {filters.type !== 'all' && (
+              <Badge variant="secondary" className="gap-1">
+                Type: {filters.type}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, type: 'all' }))}
+                />
+              </Badge>
+            )}
+            {filters.collections.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                Collection: {collections.find(c => c.id === filters.collections[0])?.title}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, collections: [] }))}
+                />
+              </Badge>
+            )}
+            {filters.vendors.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                Vendor: {filters.vendors[0]}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, vendors: [] }))}
+                />
+              </Badge>
+            )}
+            {filters.productTypes.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                Type: {filters.productTypes[0]}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, productTypes: [] }))}
+                />
+              </Badge>
+            )}
+            {filters.categories.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                Category: {getCategories.find(c => c.id === filters.categories[0])?.name}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
+                />
+              </Badge>
+            )}
+            {filters.tags.length > 0 && (
+              <Badge variant="secondary" className="gap-1">
+                Tag: {filters.tags[0]}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, tags: [] }))}
+                />
+              </Badge>
+            )}
+            {filters.createdAfter && (
+              <Badge variant="secondary" className="gap-1">
+                Created: {filters.createdAfter.toLocaleDateString()}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, createdAfter: undefined }))}
+                />
+              </Badge>
+            )}
+            {filters.publishedAfter && (
+              <Badge variant="secondary" className="gap-1">
+                Published: {filters.publishedAfter.toLocaleDateString()}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, publishedAfter: undefined }))}
+                />
+              </Badge>
+            )}
+            {filters.updatedAfter && (
+              <Badge variant="secondary" className="gap-1">
+                Updated: {filters.updatedAfter.toLocaleDateString()}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, updatedAfter: undefined }))}
+                />
+              </Badge>
+            )}
+            {filters.searchQuery && (
+              <Badge variant="secondary" className="gap-1">
+                Search: {filters.searchQuery}
+                <X 
+                  className="w-3 h-3 cursor-pointer" 
+                  onClick={() => setFilters(prev => ({ ...prev, searchQuery: '' }))}
+                />
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button 
+          variant="outline" 
+          onClick={resetFilters}
+          className="flex-1 sm:flex-none"
+        >
+          Reset All
+        </Button>
+        <Button 
+          onClick={applyFilters} 
+          disabled={applyingFilters}
+          className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none"
+        >
+          {applyingFilters ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Applying...
+            </>
+          ) : (
+            'Apply Filters'
+          )}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden bg-white">
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("rounded-none", viewMode === "list" && "bg-secondary")}
+                className={cn("rounded-none border-r border-gray-300", viewMode === "list" && "bg-gray-100")}
                 onClick={() => setViewMode("list")}
               >
                 <List className="w-4 h-4" />
@@ -151,7 +974,7 @@ export default function ProductSelection() {
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("rounded-none", viewMode === "grid" && "bg-secondary")}
+                className={cn("rounded-none", viewMode === "grid" && "bg-gray-100")}
                 onClick={() => setViewMode("grid")}
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -161,113 +984,249 @@ export default function ProductSelection() {
         </div>
 
         {/* Selection Info */}
-        <div className="flex items-center justify-between py-3 px-4 bg-secondary/50 rounded-lg animate-fade-in" style={{ animationDelay: "0.15s" }}>
+        <div className="flex items-center justify-between py-3 px-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
           <div className="flex items-center gap-3">
             <Checkbox
               checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
               onCheckedChange={toggleAll}
+              className="h-5 w-5 border-gray-400 data-[state=checked]:bg-blue-600"
             />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm font-medium text-gray-700">
               {selectedProducts.length} of {filteredProducts.length} products selected
             </span>
           </div>
-          {selectedProducts.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setSelectedProducts([])}>
-              Clear selection
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">
+              Page {currentPage} • {products.length} total products
+            </span>
+            {selectedProducts.length > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedProducts([])}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                Clear selection
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Product List/Grid */}
-        <div
-          className={cn(
-            "animate-fade-in",
-            viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-              : "space-y-2"
-          )}
-          style={{ animationDelay: "0.2s" }}
-        >
-          {filteredProducts.map((product) => {
-            const isSelected = selectedProducts.includes(product.id);
-            
-            if (viewMode === "grid") {
-              return (
-                <div
-                  key={product.id}
-                  onClick={() => toggleProduct(product.id)}
-                  className={cn(
-                    "bg-card border rounded-xl p-4 cursor-pointer transition-smooth",
-                    isSelected
-                      ? "border-primary shadow-card-hover ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/30 hover:shadow-card"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <Checkbox checked={isSelected} className="mt-1" />
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  </div>
-                  <h4 className="font-medium text-foreground mt-3 line-clamp-2">{product.title}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">{product.sku}</p>
-                  <Badge
-                    variant={product.status === "active" ? "default" : "secondary"}
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-4" />
+            <h3 className="text-lg font-medium text-gray-700">Loading products...</h3>
+            <p className="text-gray-500 mt-1">Fetching your Shopify store data</p>
+          </div>
+        ) : (
+          <>
+            {/* Product Grid/List */}
+            <div
+              className={cn(
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  : "space-y-3"
+              )}
+            >
+              {filteredProducts.map((product) => {
+                const isSelected = selectedProducts.includes(product.id);
+                const variant = product.variants.edges[0]?.node;
+                const sku = variant?.sku || 'No SKU';
+                const imageUrl = product.featuredMedia?.preview.image.url || 
+                  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop';
+                const price = formatPrice(
+                  product.priceRangeV2.minVariantPrice.amount,
+                  product.priceRangeV2.minVariantPrice.currencyCode
+                );
+
+                if (viewMode === "grid") {
+                  return (
+                    <div
+                      key={product.id}
+                      onClick={() => toggleProduct(product.id)}
+                      className={cn(
+                        "bg-white border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg",
+                        isSelected
+                          ? "border-blue-600 shadow-lg ring-2 ring-blue-100"
+                          : "border-gray-200 hover:border-blue-300"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox 
+                          checked={isSelected} 
+                          className="mt-1 h-5 w-5 border-gray-400 data-[state=checked]:bg-blue-600"
+                        />
+                        <img
+                          src={imageUrl}
+                          alt={product.title}
+                          className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                        />
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mt-3 line-clamp-2 text-sm">
+                        {product.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-1">{sku}</p>
+                      <div className="flex items-center justify-between mt-3">
+                        <span className="font-bold text-gray-900">{price}</span>
+                        <Badge
+                          variant={getStatusBadgeVariant(product.status)}
+                          className="text-xs"
+                        >
+                          {product.status.toLowerCase()}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-gray-500">{product.vendor}</span>
+                        <span className="text-xs text-gray-500">•</span>
+                        <span className="text-xs text-gray-500">{product.productType}</span>
+                      </div>
+                      {product.category && (
+                        <div className="mt-2">
+                          <Badge variant="outline" className="text-xs">
+                            {product.category.name}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() => toggleProduct(product.id)}
                     className={cn(
-                      "mt-2 text-xs",
-                      product.status === "active" ? "bg-success/10 text-success hover:bg-success/20" : ""
+                      "bg-white border rounded-xl p-4 flex items-center gap-4 cursor-pointer transition-all duration-200 hover:shadow-lg",
+                      isSelected
+                        ? "border-blue-600 shadow-lg ring-2 ring-blue-100"
+                        : "border-gray-200 hover:border-blue-300"
                     )}
                   >
-                    {product.status}
-                  </Badge>
-                </div>
-              );
-            }
+                    <Checkbox 
+                      checked={isSelected} 
+                      className="h-5 w-5 border-gray-400 data-[state=checked]:bg-blue-600"
+                    />
+                    <img
+                      src={imageUrl}
+                      alt={product.title}
+                      className="w-14 h-14 rounded-lg object-cover border border-gray-200"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900 truncate">{product.title}</h4>
+                      <div className="flex items-center gap-3 mt-1">
+                        <p className="text-sm text-gray-600">{sku}</p>
+                        <span className="text-gray-400">•</span>
+                        <p className="text-sm text-gray-600">{product.vendor}</p>
+                        <span className="text-gray-400">•</span>
+                        <p className="text-sm text-gray-600">{product.productType}</p>
+                      </div>
+                      {product.category && (
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          {product.category.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="hidden lg:block">
+                      <span className="font-bold text-gray-900">{price}</span>
+                    </div>
+                    <div className="hidden md:block text-sm text-gray-600">
+                      {product.totalInventory} in stock
+                    </div>
+                    <Badge
+                      variant={getStatusBadgeVariant(product.status)}
+                      className="text-xs min-w-[80px] justify-center"
+                    >
+                      {product.status.toLowerCase()}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
 
-            return (
-              <div
-                key={product.id}
-                onClick={() => toggleProduct(product.id)}
-                className={cn(
-                  "bg-card border rounded-xl p-4 flex items-center gap-4 cursor-pointer transition-smooth",
-                  isSelected
-                    ? "border-primary shadow-card-hover ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/30 hover:shadow-card"
-                )}
-              >
-                <Checkbox checked={isSelected} />
-                <img
-                  src={product.image}
-                  alt={product.title}
-                  className="w-14 h-14 rounded-lg object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-foreground truncate">{product.title}</h4>
-                  <p className="text-sm text-muted-foreground">{product.sku}</p>
-                </div>
-                <div className="hidden sm:block text-sm text-muted-foreground">{product.type}</div>
-                <div className="hidden md:block text-sm text-muted-foreground">{product.vendor}</div>
-                <Badge
-                  variant={product.status === "active" ? "default" : "secondary"}
-                  className={cn(
-                    "text-xs",
-                    product.status === "active" ? "bg-success/10 text-success hover:bg-success/20" : ""
-                  )}
+            {/* Pagination/Load More */}
+            {pageInfo?.hasNextPage && filteredProducts.length > 0 && (
+              <div className="flex justify-center pt-6">
+                <Button
+                  onClick={loadMoreProducts}
+                  disabled={loadingMore}
+                  variant="outline"
+                  className="px-8"
                 >
-                  {product.status}
-                </Badge>
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Load More Products
+                    </>
+                  )}
+                </Button>
               </div>
-            );
-          })}
-        </div>
+            )}
 
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground">No products found</h3>
-            <p className="text-muted-foreground mt-1">Try adjusting your search or filters</p>
+            {/* Pagination Info */}
+            {products.length > 0 && (
+              <div className="flex items-center justify-center text-sm text-gray-500">
+                Showing {filteredProducts.length} of {products.length} products
+                {pageInfo?.hasNextPage && " • Scroll down to load more"}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {filteredProducts.length === 0 && !loading && (
+              <div className="text-center py-16 bg-gradient-to-b from-white to-gray-50 rounded-2xl border border-gray-200">
+                <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900">No products found</h3>
+                <p className="text-gray-600 mt-2 mb-6 max-w-md mx-auto">
+                  {filters.searchQuery || Object.keys(filters).some(k => 
+                    k !== 'searchField' && filters[k as keyof FilterState] !== undefined && 
+                    filters[k as keyof FilterState] !== 'all'
+                  ) ? 'Try adjusting your filters or search query' : 'No products available in your store'}
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={resetFilters}
+                    className="border-gray-300 hover:bg-gray-50"
+                  >
+                    Reset Filters
+                  </Button>
+                  <Button 
+                    variant="default"
+                    onClick={() => setFilterOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Filter className="w-4 h-4 mr-2" />
+                    Adjust Filters
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Footer Action Bar */}
+        {selectedProducts.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white border border-gray-300 rounded-2xl shadow-xl px-6 py-3 flex items-center justify-between gap-6 animate-slide-up z-50">
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="px-3 py-1">
+                {selectedProducts.length} selected
+              </Badge>
+              <span className="text-sm text-gray-600">
+                Ready for {serviceTitles[service] || "AI optimization"}
+              </span>
+            </div>
+            <Button
+              onClick={handleContinue}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white gap-2 shadow-lg"
+            >
+              Continue to Optimization
+              <ArrowRight className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </div>
