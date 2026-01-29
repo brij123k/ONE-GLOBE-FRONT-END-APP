@@ -30,9 +30,15 @@ const optimizationTools = [
   },
   {
     icon: Search,
-    title: "Meta Title & Description",
-    description: "Optimize meta tags for improved search engine visibility and CTR.",
-    path: "/products?service=meta",
+    title: "Meta Title",
+    description: "Optimize meta Titles for improved search engine visibility and CTR.",
+    path: "/products?service=metaTitle",
+  },
+  {
+    icon: Search,
+    title: "Meta Description",
+    description: "Optimize meta Descriptions for improved search engine visibility and CTR.",
+    path: "/products?service=metaDescription",
   },
   {
     icon: Image,
@@ -108,11 +114,11 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+        {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: "0.1s" }}>
           {stats.map((stat) => (
             <StatsCard key={stat.label} {...stat} />
           ))}
-        </div>
+        </div> */}
 
         {/* Optimization Tools */}
         <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>

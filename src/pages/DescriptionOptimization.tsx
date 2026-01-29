@@ -407,27 +407,7 @@ export default function DescriptionOptimization() {
     for (let i = 0; i < products.length; i++) {
       const product = products[i];
       let newDescription = product.description || '';
-
-      // Apply classic rules
-      if (classicRules.wordLimit.enabled) {
-        const words = newDescription.split(' ');
-        if (words.length > classicRules.wordLimit.value) {
-          newDescription = words.slice(0, classicRules.wordLimit.value).join(' ');
-        }
-      }
-
-      if (classicRules.characterLimit.enabled) {
-        if (newDescription.length > classicRules.characterLimit.value) {
-          if (classicRules.characterLimit.breakWords) {
-            newDescription = newDescription.substring(0, classicRules.characterLimit.value);
-          } else {
-            // Find last space before limit
-            const truncated = newDescription.substring(0, classicRules.characterLimit.value);
-            const lastSpace = truncated.lastIndexOf(' ');
-            newDescription = lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
-          }
-        }
-      }
+      console.log(product)
 
       if (classicRules.prefix.enabled && classicRules.prefix.value) {
         newDescription = `${classicRules.prefix.value} ${newDescription}`;
@@ -657,33 +637,7 @@ export default function DescriptionOptimization() {
                   </DialogHeader>
                   
                   <div className="mt-6">
-                    {/* Summary Stats */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        <p className="text-xs text-blue-600 font-medium">Total Products</p>
-                        <p className="text-xl font-bold text-gray-900 mt-1">{products.length}</p>
-                      </div>
-                      <div className="bg-green-50 border border-green-100 rounded-lg p-3">
-                        <p className="text-xs text-green-600 font-medium">Avg. Length</p>
-                        <p className="text-xl font-bold text-gray-900 mt-1">
-                          {Math.round(products.reduce((sum, p) => sum + (p.description?.length || 0), 0) / products.length)}
-                          <span className="text-sm font-normal text-gray-500 ml-1">chars</span>
-                        </p>
-                      </div>
-                      <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
-                        <p className="text-xs text-purple-600 font-medium">Categories</p>
-                        <p className="text-xl font-bold text-gray-900 mt-1">
-                          {new Set(products.map(p => p.categoryName)).size}
-                        </p>
-                      </div>
-                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                        <p className="text-xs text-amber-600 font-medium">Expected Time</p>
-                        <p className="text-xl font-bold text-gray-900 mt-1">
-                          {Math.ceil(products.length * 1.5)}
-                          <span className="text-sm font-normal text-gray-500 ml-1">min</span>
-                        </p>
-                      </div>
-                    </div>
+                   
 
                     {/* Products List */}
                     <div className="space-y-3 max-h-[50vh] overflow-y-auto scrollbar-thin pr-2">
@@ -1183,70 +1137,6 @@ export default function DescriptionOptimization() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Word Limit */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Word Limit</Label>
-                    <Switch
-                      checked={classicRules.wordLimit.enabled}
-                      onCheckedChange={(checked) => setClassicRules({
-                        ...classicRules,
-                        wordLimit: { ...classicRules.wordLimit, enabled: checked }
-                      })}
-                    />
-                  </div>
-                  {classicRules.wordLimit.enabled && (
-                    <Input
-                      type="number"
-                      value={classicRules.wordLimit.value}
-                      onChange={(e) => setClassicRules({
-                        ...classicRules,
-                        wordLimit: { ...classicRules.wordLimit, value: parseInt(e.target.value) || 10 }
-                      })}
-                      min="1"
-                      max="500"
-                    />
-                  )}
-                </div>
-
-                {/* Character Limit */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Character Limit</Label>
-                    <Switch
-                      checked={classicRules.characterLimit.enabled}
-                      onCheckedChange={(checked) => setClassicRules({
-                        ...classicRules,
-                        characterLimit: { ...classicRules.characterLimit, enabled: checked }
-                      })}
-                    />
-                  </div>
-                  {classicRules.characterLimit.enabled && (
-                    <>
-                      <Input
-                        type="number"
-                        value={classicRules.characterLimit.value}
-                        onChange={(e) => setClassicRules({
-                          ...classicRules,
-                          characterLimit: { ...classicRules.characterLimit, value: parseInt(e.target.value) || 500 }
-                        })}
-                        min="10"
-                        max="2000"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={classicRules.characterLimit.breakWords}
-                          onCheckedChange={(checked) => setClassicRules({
-                            ...classicRules,
-                            characterLimit: { ...classicRules.characterLimit, breakWords: checked }
-                          })}
-                        />
-                        <Label className="text-sm">Break words if needed</Label>
-                      </div>
-                    </>
-                  )}
-                </div>
-
                 {/* Prefix & Suffix */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">

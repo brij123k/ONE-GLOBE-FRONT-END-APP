@@ -11,6 +11,7 @@ const ApiConfig = {
   getStoredProduct:`${BASE_URL}/api/optimization/products?serviceName=title`,
   getStoredDesProduct:`${BASE_URL}/api/optimization/products?serviceName=description`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
+  aiDescriptionOptimization:`${BASE_URL}/api/optimization/ai/description`,
   updateShopifyTitle:`${BASE_URL}/api/optimization/apply/title`,
   updateShopifyDescription:`${BASE_URL}/api/optimization/apply/description`,
 };
