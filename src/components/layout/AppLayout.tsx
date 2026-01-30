@@ -305,7 +305,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
 
       {/* Center section - Search */}
       <div className="flex-1 flex justify-center">
-        <div className={cn(
+        {/* <div className={cn(
           "relative transition-all duration-300",
           searchOpen ? "w-full max-w-2xl" : "w-0 opacity-0 pointer-events-none",
           "sm:w-64 sm:opacity-100 sm:pointer-events-auto"
@@ -315,7 +315,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
             placeholder="Search products..."
             className="w-full pl-9 bg-secondary/50 border-border focus:bg-background"
           />
-        </div>
+        </div> */}
       </div>
 
       {/* Right section */}
