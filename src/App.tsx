@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { getShopFromUrl } from "./utils/auth";
 import { loginShop } from "./services/authService";
 import MetaTitleOptimization from "./pages/MetaTitleOptimization";
+import MetaDescriptionOptimization from "./pages/MetaDescriptionOptimization";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => {
             <Route path="/title-optimization" element={<TitleOptimization />} />
             <Route path="/description-optimization" element={<DescriptionOptimization />} />
             <Route path="/metaTitle-optimization" element={<MetaTitleOptimization />} />
+            <Route path="/metaDescription-optimization" element={<MetaDescriptionOptimization />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

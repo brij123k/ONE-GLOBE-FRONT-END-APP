@@ -11,6 +11,7 @@ const ApiConfig = {
   getStoredProduct:`${BASE_URL}/api/optimization/products?serviceName=title`,
   getStoredDesProduct:`${BASE_URL}/api/optimization/products?serviceName=description`,
   getStoredMetaTitileProduct:`${BASE_URL}/api/optimization/products?serviceName=metaTitle`,
+  getStoredMetaDecProduct:`${BASE_URL}/api/optimization/products?serviceName=metaDescription`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
   aiDescriptionOptimization:`${BASE_URL}/api/optimization/ai/description`,
   updateShopifyTitle:`${BASE_URL}/api/optimization/apply/title`,
@@ -20,7 +21,7 @@ const ApiConfig = {
   aiMetaTitleOptimization:`${BASE_URL}/api/meta/title/optimize`,
   updateMetaTitleOptimization:`${BASE_URL}/api/meta/title/save`,
 
-  aiMetadescriptionOptimization:`${BASE_URL}/api/meta/title/optimize`,
+  aiMetadescriptionOptimization:`${BASE_URL}/api/meta/description/optimize`,
   updateMetaDescriptionOptimization:`${BASE_URL}/api/meta/description/save`,
 
 

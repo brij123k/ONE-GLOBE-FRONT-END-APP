@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  // baseURL: 'http://localhost:3000',
-  baseURL: 'https://one-globe.onrender.com',
+  baseURL: 'http://localhost:3000',
+  // baseURL: 'https://one-globe.onrender.com',
 });
 
 instance.interceptors.request.use((config) => {
