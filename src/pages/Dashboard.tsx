@@ -14,6 +14,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Description } from "@radix-ui/react-toast";
 
 const optimizationTools = [
   {
@@ -40,10 +41,16 @@ const optimizationTools = [
     description: "Optimize meta Descriptions for improved search engine visibility and CTR.",
     path: "/products?service=metaDescription",
   },
+  // {
+  //   icon:Image,
+  //   title:"Image ALT & Title Optimization",
+  //   description:"",
+  //   path:"/products?service=imageALT"
+  // },
   {
     icon: Image,
     title: "Image Size Optimization",
-    description: "Compress and optimize images for faster loading without quality loss.",
+    description: "Compress and optimize images for SEO and faster loading without quality loss.",
     path: "/products?service=image",
   },
   {

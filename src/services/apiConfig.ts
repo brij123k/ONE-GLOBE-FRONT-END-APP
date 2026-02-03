@@ -12,6 +12,7 @@ const ApiConfig = {
   getStoredDesProduct:`${BASE_URL}/api/optimization/products?serviceName=description`,
   getStoredMetaTitileProduct:`${BASE_URL}/api/optimization/products?serviceName=metaTitle`,
   getStoredMetaDecProduct:`${BASE_URL}/api/optimization/products?serviceName=metaDescription`,
+  getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
   aiDescriptionOptimization:`${BASE_URL}/api/optimization/ai/description`,
   updateShopifyTitle:`${BASE_URL}/api/optimization/apply/title`,
@@ -23,6 +24,10 @@ const ApiConfig = {
 
   aiMetadescriptionOptimization:`${BASE_URL}/api/meta/description/optimize`,
   updateMetaDescriptionOptimization:`${BASE_URL}/api/meta/description/save`,
+
+  // image
+  aiImageOptimization:`${BASE_URL}/seo/image/optimize`,
+  updateImageOptimization:`${BASE_URL}/seo/image/save`,
 
 
 };

@@ -13,6 +13,7 @@ import { getShopFromUrl } from "./utils/auth";
 import { loginShop } from "./services/authService";
 import MetaTitleOptimization from "./pages/MetaTitleOptimization";
 import MetaDescriptionOptimization from "./pages/MetaDescriptionOptimization";
+import ImageOptimization from "./pages/ImageOptimization";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => {
             <Route path="/description-optimization" element={<DescriptionOptimization />} />
             <Route path="/metaTitle-optimization" element={<MetaTitleOptimization />} />
             <Route path="/metaDescription-optimization" element={<MetaDescriptionOptimization />} />
+            <Route path="/image-optimization" element={<ImageOptimization />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
