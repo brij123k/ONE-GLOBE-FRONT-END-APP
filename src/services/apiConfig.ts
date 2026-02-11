@@ -1,5 +1,5 @@
-// const BASE_URL = "http://localhost:3000";
-const BASE_URL = "https://one-globe.onrender.com"
+const BASE_URL = "http://localhost:3000";
+// const BASE_URL = "https://one-globe.onrender.com"
 const ApiConfig = {
   baseUrl: BASE_URL,
   // shopify products
@@ -12,6 +12,9 @@ const ApiConfig = {
   getStoredDesProduct:`${BASE_URL}/api/optimization/products?serviceName=description`,
   getStoredMetaTitileProduct:`${BASE_URL}/api/optimization/products?serviceName=metaTitle`,
   getStoredMetaDecProduct:`${BASE_URL}/api/optimization/products?serviceName=metaDescription`,
+  getStoredMetaHandleProduct:`${BASE_URL}/api/optimization/products?serviceName=handle`,
+
+
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
   aiDescriptionOptimization:`${BASE_URL}/api/optimization/ai/description`,
@@ -24,6 +27,9 @@ const ApiConfig = {
 
   aiMetadescriptionOptimization:`${BASE_URL}/api/meta/description/optimize`,
   updateMetaDescriptionOptimization:`${BASE_URL}/api/meta/description/save`,
+
+  aiMetaHandleOptimization:`${BASE_URL}/api/meta/handle/optimize`,
+  updateMetaHandleOptimization:`${BASE_URL}/api/meta/handle/save`,
 
   // image
   aiImageOptimization:`${BASE_URL}/seo/image/optimize`,

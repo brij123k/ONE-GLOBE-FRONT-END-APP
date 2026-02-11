@@ -41,6 +41,12 @@ const optimizationTools = [
     description: "Optimize meta Descriptions for improved search engine visibility and CTR.",
     path: "/products?service=metaDescription",
   },
+  {
+    icon: Search,
+    title: "Meta Handle",
+    description: "Optimize meta Handler for improved search engine visibility and CTR.",
+    path: "/products?service=handle",
+  },
   // {
   //   icon:Image,
   //   title:"Image ALT & Title Optimization",
