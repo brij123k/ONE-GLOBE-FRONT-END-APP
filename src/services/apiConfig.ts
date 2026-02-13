@@ -13,6 +13,7 @@ const ApiConfig = {
   getStoredMetaTitileProduct:`${BASE_URL}/api/optimization/products?serviceName=metaTitle`,
   getStoredMetaDecProduct:`${BASE_URL}/api/optimization/products?serviceName=metaDescription`,
   getStoredMetaHandleProduct:`${BASE_URL}/api/optimization/products?serviceName=handle`,
+  getStorePriceProduct:`${BASE_URL}/api/optimization/products?serviceName=pricing`,
 
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
@@ -34,6 +35,10 @@ const ApiConfig = {
   // image
   aiImageOptimization:`${BASE_URL}/seo/image/optimize`,
   updateImageOptimization:`${BASE_URL}/seo/image/save`,
+
+  // pricing
+  priceCalulation:`${BASE_URL}/pricing/calculate`,
+  priceApply:`${BASE_URL}/pricing/apply`,
 
 
 };

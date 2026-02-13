@@ -15,6 +15,7 @@ import MetaTitleOptimization from "./pages/MetaTitleOptimization";
 import MetaDescriptionOptimization from "./pages/MetaDescriptionOptimization";
 import ImageOptimization from "./pages/ImageOptimization";
 import MetaHandleOptimization from "./pages/MetaHandleOptimization";
+import PriceOptimization from "./pages/PriceOptimization";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => {
             <Route path="/metaDescription-optimization" element={<MetaDescriptionOptimization />} />
             <Route path="/handle-optimization" element={<MetaHandleOptimization />} />
             <Route path="/image-optimization" element={<ImageOptimization />} />
+            <Route path="/pricing-optimization" element={<PriceOptimization />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
