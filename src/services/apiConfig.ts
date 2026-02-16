@@ -1,5 +1,5 @@
-const BASE_URL = "http://localhost:3000";
-// const BASE_URL = "https://one-globe.onrender.com"
+// const BASE_URL = "http://localhost:3000";
+const BASE_URL = "https://starfish-app-djdfs.ondigitalocean.app/api"
 const ApiConfig = {
   baseUrl: BASE_URL,
   // shopify products
