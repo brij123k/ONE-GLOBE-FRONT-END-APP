@@ -1,4 +1,4 @@
-// const BASE_URL = "http://localhost:3000";
+// export const BASE_URL = "http://localhost:3000";
 const BASE_URL = "https://starfish-app-djdfs.ondigitalocean.app"
 const ApiConfig = {
   baseUrl: BASE_URL,

@@ -1,10 +1,8 @@
 import axios from 'axios';
-
-// const API_BASE = 'http://localhost:3000';
-const API_BASE = "https://starfish-app-djdfs.ondigitalocean.app"
+import { BASE_URL } from './apiConfig';
 
 export async function loginShop(shop: string) {
-  const response = await axios.post(`${API_BASE}/api/auth/login`, {
+  const response = await axios.post(`${BASE_URL}/api/auth/login`, {
     shop,
   });
 

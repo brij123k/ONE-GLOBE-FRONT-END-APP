@@ -1,8 +1,8 @@
 import axios from 'axios';
+import { BASE_URL } from './apiConfig';
 
 const instance = axios.create({
-  // baseURL: 'http://localhost:3000',
-  baseURL: 'https://starfish-app-djdfs.ondigitalocean.app',
+  baseURL: BASE_URL,
 });
 
 instance.interceptors.request.use((config) => {
