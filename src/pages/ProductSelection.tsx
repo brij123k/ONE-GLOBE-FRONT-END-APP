@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -15,27 +15,27 @@ import {
   Calendar,
   Tag,
   Building,
-  Grid3x3,
   X,
   ChevronDown,
   LayoutGrid,
   List,
-  Box,
   Layers,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
-// Types based on API response
+// Types
 interface Product {
   id: string;
   title: string;
@@ -46,7 +46,6 @@ interface Product {
   tags: string[];
   description: string;
   featuredMedia?: {
-    id: string;
     preview: {
       image: {
         url: string;
@@ -58,14 +57,7 @@ interface Product {
       amount: string;
       currencyCode: string;
     };
-    maxVariantPrice: {
-      amount: string;
-      currencyCode: string;
-    };
   };
-  createdAt: string;
-  publishedAt: string;
-  updatedAt: string;
   totalInventory: number;
   variants: {
     edges: Array<{
@@ -77,26 +69,17 @@ interface Product {
   category?: {
     id: string;
     name: string;
-    fullName: string;
   };
 }
 
 interface Collection {
   id: string;
   title: string;
-  handle: string;
   productsCount: number;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  fullName: string;
-}
-
 interface FilterState {
-  status: string;
-  type: string;
+  status?: string;
   collections: string[];
   searchField: string;
   searchQuery: string;
@@ -111,7 +94,22 @@ interface FilterState {
 
 interface PageInfo {
   hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  startCursor: string;
   endCursor: string;
+}
+
+interface FilterChip {
+  id: string;
+  type: 'vendor' | 'collection' | 'tag' | 'productType' | 'category' | 'date';
+  label: string;
+  value: any;
+  field: keyof FilterState;
+}
+
+interface DateFilterType {
+  field: 'createdAfter' | 'publishedAfter' | 'updatedAfter';
+  label: string;
 }
 
 const serviceTitles: Record<string, string> = {
@@ -139,35 +137,44 @@ const statusOptions = [
   { value: "ARCHIVED", label: "Archived" },
 ];
 
+const dateFilters: DateFilterType[] = [
+  { field: 'createdAfter', label: 'Created After' },
+  { field: 'publishedAfter', label: 'Published After' },
+  { field: 'updatedAfter', label: 'Updated After' },
+];
+
+const ITEMS_PER_PAGE = 40;
+
 export default function ProductSelection() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const service = searchParams.get("service") || "title";
   
+  // View state
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectAllOnPage, setSelectAllOnPage] = useState(false);
+  
+  // Data states
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [vendors, setVendors] = useState<string[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [productTypes, setProductTypes] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [categories, setCategories] = useState<{id: string, title: string}[]>([]);
+  
+  // Loading states
   const [loading, setLoading] = useState(true);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [applyingFilters, setApplyingFilters] = useState(false);
-  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
-  const [showVendorDropdown, setShowVendorDropdown] = useState(false);
-  const [activeCollection, setActiveCollection] = useState<Collection | null>(null);
-
-  const collectionChipRef = useRef<HTMLButtonElement>(null);
-  const vendorChipRef = useRef<HTMLButtonElement>(null);
-  const collectionDropdownRef = useRef<HTMLDivElement>(null);
-  const vendorDropdownRef = useRef<HTMLDivElement>(null);
-
+  
+  // Pagination
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
+  const [cursors, setCursors] = useState<string[]>([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  
+  // Filter state
   const [filters, setFilters] = useState<FilterState>({
     status: "all",
-    type: "all",
     collections: [],
     searchField: "title",
     searchQuery: "",
@@ -177,22 +184,65 @@ export default function ProductSelection() {
     categories: [],
   });
 
+  // Active filter chips
+  const [activeFilterChips, setActiveFilterChips] = useState<FilterChip[]>([]);
+  
+  // Available filter types for "More Filters"
+  const [availableFilterTypes, setAvailableFilterTypes] = useState<{
+    productTypes: boolean;
+    categories: boolean;
+    dates: boolean;
+  }>({
+    productTypes: false,
+    categories: false,
+    dates: false,
+  });
+
+  // Search states for dropdowns
+  const [collectionSearch, setCollectionSearch] = useState("");
+  const [vendorSearch, setVendorSearch] = useState("");
   const [tagSearch, setTagSearch] = useState("");
+  const [productTypeSearch, setProductTypeSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+
+  // Dropdown states
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  
+  // Date picker states
+  const [datePickerOpen, setDatePickerOpen] = useState<{
+    createdAfter: boolean;
+    publishedAfter: boolean;
+    updatedAfter: boolean;
+  }>({
+    createdAfter: false,
+    publishedAfter: false,
+    updatedAfter: false,
+  });
+
+  // Refs for click outside
+  const dropdownRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Fetch initial data
   useEffect(() => {
     fetchInitialData();
   }, []);
 
+  // Handle click outside for dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (collectionDropdownRef.current && !collectionDropdownRef.current.contains(event.target as Node) &&
-          collectionChipRef.current && !collectionChipRef.current.contains(event.target as Node)) {
-        setShowCollectionDropdown(false);
-      }
-      if (vendorDropdownRef.current && !vendorDropdownRef.current.contains(event.target as Node) &&
-          vendorChipRef.current && !vendorChipRef.current.contains(event.target as Node)) {
-        setShowVendorDropdown(false);
+      let shouldClose = true;
+      dropdownRefs.current.forEach((ref) => {
+        if (ref.contains(event.target as Node)) {
+          shouldClose = false;
+        }
+      });
+      if (shouldClose) {
+        setOpenDropdown(null);
+        setCollectionSearch("");
+        setVendorSearch("");
+        setTagSearch("");
+        setProductTypeSearch("");
+        setCategorySearch("");
       }
     };
 
@@ -200,106 +250,237 @@ export default function ProductSelection() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const fetchInitialData = async (reset = true) => {
+  // Fetch products with current filters
+  const fetchProducts = useCallback(async (cursor?: string, direction: 'next' | 'prev' = 'next') => {
+    try {
+      setLoadingMore(true);
+      const params: any = { 
+        limit: ITEMS_PER_PAGE,
+      };
+
+      if (cursor) {
+        if (direction === 'next') {
+          params.after = cursor;
+        } else {
+          params.before = cursor;
+        }
+      }
+
+      // Add all active filters
+      if (filters.status && filters.status !== 'all') params.status = filters.status;
+      if (filters.collections.length > 0) params.collections = filters.collections.join(',');
+      if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
+      if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
+      if (filters.tags.length > 0) params.tags = filters.tags.join(',');
+      if (filters.categories.length > 0) params.categories = filters.categories.join(',');
+      if (filters.createdAfter) params.createdAfter = filters.createdAfter.toISOString();
+      if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
+      if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
+      if (filters.searchQuery) params[filters.searchField] = filters.searchQuery;
+
+      const response = await getApi(ApiConfig.getProducts, params);
+      
+      setProducts(response.products.map((p: any) => p.node));
+      setPageInfo(response.pageInfo);
+      
+      // Update cursors for pagination
+      if (direction === 'next' && cursor) {
+        setCursors(prev => [...prev, cursor]);
+        setCurrentPageIndex(prev => prev + 1);
+      } else if (direction === 'prev' && cursor) {
+        setCursors(prev => prev.slice(0, -1));
+        setCurrentPageIndex(prev => prev - 1);
+      } else if (!cursor) {
+        setCursors([]);
+        setCurrentPageIndex(0);
+      }
+      
+      setSelectedProducts([]);
+      setSelectAllOnPage(false);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoadingMore(false);
+      setLoading(false);
+    }
+  }, [filters]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!loading) {
+        fetchProducts();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [filters.searchQuery, filters.searchField, filters.status, fetchProducts, loading]);
+
+  // Update active filter chips when filters change
+  useEffect(() => {
+    const chips: FilterChip[] = [];
+    
+    filters.vendors.forEach(v => chips.push({ 
+      id: `vendor-${v}`, 
+      type: 'vendor', 
+      label: v, 
+      value: v,
+      field: 'vendors' 
+    }));
+    
+    filters.collections.forEach(c => {
+      const collection = collections.find(col => col.id === c);
+      if (collection) chips.push({ 
+        id: `collection-${c}`, 
+        type: 'collection', 
+        label: collection.title, 
+        value: c,
+        field: 'collections' 
+      });
+    });
+    
+    filters.tags.forEach(t => chips.push({ 
+      id: `tag-${t}`, 
+      type: 'tag', 
+      label: t, 
+      value: t,
+      field: 'tags' 
+    }));
+    
+    filters.productTypes.forEach(p => chips.push({ 
+      id: `productType-${p}`, 
+      type: 'productType', 
+      label: p, 
+      value: p,
+      field: 'productTypes' 
+    }));
+    
+    filters.categories.forEach(c => {
+      const category = categories.find(cat => cat.id === c);
+      if (category) chips.push({ 
+        id: `category-${c}`, 
+        type: 'category', 
+        label: category.name, 
+        value: c,
+        field: 'categories' 
+      });
+    });
+    
+    if (filters.createdAfter) chips.push({ 
+      id: 'createdAfter', 
+      type: 'date', 
+      label: `Created: ${format(filters.createdAfter, 'MM/dd/yyyy')}`, 
+      value: 'createdAfter',
+      field: 'createdAfter' 
+    });
+    
+    if (filters.publishedAfter) chips.push({ 
+      id: 'publishedAfter', 
+      type: 'date', 
+      label: `Published: ${format(filters.publishedAfter, 'MM/dd/yyyy')}`, 
+      value: 'publishedAfter',
+      field: 'publishedAfter' 
+    });
+    
+    if (filters.updatedAfter) chips.push({ 
+      id: 'updatedAfter', 
+      type: 'date', 
+      label: `Updated: ${format(filters.updatedAfter, 'MM/dd/yyyy')}`, 
+      value: 'updatedAfter',
+      field: 'updatedAfter' 
+    });
+    
+    setActiveFilterChips(chips);
+  }, [filters, collections, categories]);
+
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
-      
-      const productsRes = await getApi(ApiConfig.getProducts, { 
-        limit: 20 
-      });
-      
-      const productsData = productsRes.products.map((p: any) => p.node);
-      setProducts(productsData);
-      setPageInfo(productsRes.pageInfo);
-      setCurrentPage(1);
 
-      const collectionsRes = await getApi(ApiConfig.getCollections);
+      // Fetch products with initial filters
+      await fetchProducts();
+
+      // Fetch filter options in parallel
+      const [collectionsRes, vendorsRes, typesRes, tagsRes, categoriesRes] = await Promise.all([
+        getApi(ApiConfig.getCollections),
+        getApi(ApiConfig.getVendors),
+        getApi(ApiConfig.getProductType),
+        getApi(ApiConfig.getTags),
+        getApi(ApiConfig.getCategories),
+      ]);
+
       setCollections(collectionsRes.collections || []);
-
-      const vendorsRes = await getApi(ApiConfig.getVendors);
       setVendors(vendorsRes.vendors || []);
+      setProductTypes(typesRes.productTypes || []);
+      setTags(tagsRes.tags || []);
+      setCategories(categoriesRes.categories || []);
 
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMoreProducts = async () => {
-    if (!pageInfo?.hasNextPage || loadingMore) return;
+  const handleNextPage = () => {
+    if (pageInfo?.hasNextPage && pageInfo.endCursor) {
+      fetchProducts(pageInfo.endCursor, 'next');
+    }
+  };
 
-    try {
-      setLoadingMore(true);
-      const params: any = {
-        limit: 20,
-        cursor: pageInfo.endCursor,
-      };
+  const handlePrevPage = () => {
+    const prevCursor = cursors[currentPageIndex - 1];
+    if (prevCursor) {
+      fetchProducts(prevCursor, 'prev');
+    }
+  };
 
-      if (filters.status !== 'all') params.status = filters.status;
-      if (filters.type !== 'all') params.type = filters.type;
-      if (filters.collections.length > 0) params.collections = filters.collections.join(',');
-      if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
-      if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
-      if (filters.tags.length > 0) params.tags = filters.tags.join(',');
-      if (filters.categories.length > 0) params.categories = filters.categories.join(',');
-      if (filters.createdAfter) params.createdAfter = filters.createdAfter.toISOString();
-      if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
-      if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
-      if (filters.searchQuery) {
-        params[filters.searchField] = filters.searchQuery;
-      }
+  const handleFirstPage = () => {
+    if (currentPageIndex > 0) {
+      setCursors([]);
+      setCurrentPageIndex(0);
+      fetchProducts();
+    }
+  };
 
-      const productsRes = await getApi(ApiConfig.getProducts, params);
-      const newProducts = productsRes.products.map((p: any) => p.node);
+  const toggleFilterSelection = (type: keyof FilterState, value: string, currentValues: string[]) => {
+    const newValues = currentValues.includes(value)
+      ? currentValues.filter(v => v !== value)
+      : [...currentValues, value];
+    
+    setFilters(prev => ({ ...prev, [type]: newValues }));
+    
+    // Trigger product fetch immediately
+    setTimeout(() => {
+      fetchProducts();
+    }, 0);
+  };
+
+  const removeFilterChip = (chip: FilterChip) => {
+    setFilters(prev => {
+      const newFilters = { ...prev };
       
-      setProducts(prev => [...prev, ...newProducts]);
-      setPageInfo(productsRes.pageInfo);
-      setCurrentPage(prev => prev + 1);
-    } catch (error) {
-      console.error('Error loading more products:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const applyFilters = async () => {
-    try {
-      setApplyingFilters(true);
-      const params: any = { limit: 20 };
-
-      if (filters.status !== 'all') params.status = filters.status;
-      if (filters.type !== 'all') params.type = filters.type;
-      if (filters.collections.length > 0) params.collections = filters.collections.join(',');
-      if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
-      if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
-      if (filters.tags.length > 0) params.tags = filters.tags.join(',');
-      if (filters.categories.length > 0) params.categories = filters.categories.join(',');
-      if (filters.createdAfter) params.createdAfter = filters.createdAfter.toISOString();
-      if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
-      if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
-      if (filters.searchQuery) {
-        params[filters.searchField] = filters.searchQuery;
+      if (chip.field === 'vendors' || chip.field === 'collections' || 
+          chip.field === 'tags' || chip.field === 'productTypes' || 
+          chip.field === 'categories') {
+        newFilters[chip.field] = (prev[chip.field] as string[]).filter(v => v !== chip.value);
+      } else if (chip.field === 'createdAfter' || chip.field === 'publishedAfter' || 
+                 chip.field === 'updatedAfter') {
+        newFilters[chip.field] = undefined;
       }
-
-      const filteredRes = await getApi(ApiConfig.getProducts, params);
-      const filteredData = filteredRes.products.map((p: any) => p.node);
-      setProducts(filteredData);
-      setPageInfo(filteredRes.pageInfo);
-      setSelectedProducts([]);
-      setCurrentPage(1);
-      setFilterOpen(false);
-    } catch (error) {
-      console.error('Error applying filters:', error);
-    } finally {
-      setApplyingFilters(false);
-    }
+      
+      return newFilters;
+    });
+    
+    // Trigger product fetch immediately
+    setTimeout(() => {
+      fetchProducts();
+    }, 0);
   };
 
-  const resetFilters = () => {
+  const clearAllFilters = () => {
     setFilters({
       status: "all",
-      type: "all",
       collections: [],
       searchField: "title",
       searchQuery: "",
@@ -308,23 +489,16 @@ export default function ProductSelection() {
       tags: [],
       categories: [],
     });
-    setActiveCollection(null);
-    fetchInitialData();
+    fetchProducts();
   };
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesSearch = filters.searchQuery ? 
-        product[filters.searchField as keyof Product]?.toString().toLowerCase().includes(filters.searchQuery.toLowerCase()) : true;
-      
-      const matchesStatus = filters.status === "all" || 
-        product.status.toLowerCase() === filters.status.toLowerCase();
-      
-      const matchesType = filters.type === "all" || product.productType === filters.type;
-      
-      return matchesSearch && matchesStatus && matchesType;
-    });
-  }, [products, filters]);
+  const addFilterType = (type: 'productTypes' | 'categories' | 'dates') => {
+    setAvailableFilterTypes(prev => ({
+      ...prev,
+      [type]: !prev[type]
+    }));
+    setOpenDropdown(null);
+  };
 
   const toggleProduct = (id: string) => {
     setSelectedProducts((prev) =>
@@ -332,12 +506,22 @@ export default function ProductSelection() {
     );
   };
 
-  const toggleAll = () => {
-    if (selectedProducts.length === filteredProducts.length) {
-      setSelectedProducts([]);
+  const toggleAllOnPage = () => {
+    if (selectAllOnPage) {
+      setSelectedProducts(prev => 
+        prev.filter(id => !products.map(p => p.id).includes(id))
+      );
     } else {
-      setSelectedProducts(filteredProducts.map((p) => p.id));
+      const pageProductIds = products.map(p => p.id);
+      setSelectedProducts(prev => [...new Set([...prev, ...pageProductIds])]);
     }
+    setSelectAllOnPage(!selectAllOnPage);
+  };
+
+  const selectAllFiltered = () => {
+    // This would need a backend endpoint to get all filtered product IDs
+    // For now, we'll just select all on current page
+    toggleAllOnPage();
   };
 
   const handleContinue = async () => {
@@ -353,33 +537,6 @@ export default function ProductSelection() {
       }
     }
   };
-
-  const getProductTypes = useMemo(() => {
-    const types = new Set(products.map(p => p.productType).filter(Boolean));
-    return Array.from(types);
-  }, [products]);
-
-  const getAllTags = useMemo(() => {
-    const tags = new Set(products.flatMap(p => p.tags).filter(Boolean));
-    return Array.from(tags);
-  }, [products]);
-
-  const filteredTags = useMemo(() => {
-    if (!tagSearch) return getAllTags;
-    return getAllTags.filter(tag => 
-      tag.toLowerCase().includes(tagSearch.toLowerCase())
-    );
-  }, [getAllTags, tagSearch]);
-
-  const getCategories = useMemo(() => {
-    const cats = new Map<string, Category>();
-    products.forEach(p => {
-      if (p.category) {
-        cats.set(p.category.id, p.category);
-      }
-    });
-    return Array.from(cats.values());
-  }, [products]);
 
   const formatPrice = (amount: string, currencyCode: string) => {
     return new Intl.NumberFormat('en-US', {
@@ -397,38 +554,41 @@ export default function ProductSelection() {
     }
   };
 
-  const getActiveFilterCount = () => {
-    let count = 0;
-    if (filters.status !== 'all') count++;
-    if (filters.type !== 'all') count++;
-    if (filters.collections.length > 0) count++;
-    if (filters.vendors.length > 0) count++;
-    if (filters.productTypes.length > 0) count++;
-    if (filters.tags.length > 0) count++;
-    if (filters.categories.length > 0) count++;
-    if (filters.createdAfter) count++;
-    if (filters.publishedAfter) count++;
-    if (filters.updatedAfter) count++;
-    if (filters.searchQuery) count++;
-    return count;
-  };
+  const filteredCollections = useMemo(() => {
+    return collections.filter(c => 
+      c.title.toLowerCase().includes(collectionSearch.toLowerCase())
+    );
+  }, [collections, collectionSearch]);
 
-  const selectCollection = (collection: Collection) => {
-    setActiveCollection(collection);
-    setFilters(prev => ({ ...prev, collections: [collection.id] }));
-    setShowCollectionDropdown(false);
-  };
+  const filteredVendors = useMemo(() => {
+    return vendors.filter(v => 
+      v.toLowerCase().includes(vendorSearch.toLowerCase())
+    );
+  }, [vendors, vendorSearch]);
 
-  const selectVendor = (vendor: string) => {
-    setFilters(prev => ({ ...prev, vendors: [vendor] }));
-    setShowVendorDropdown(false);
-  };
+  const filteredTagsList = useMemo(() => {
+    return tags.filter(t => 
+      t.toLowerCase().includes(tagSearch.toLowerCase())
+    );
+  }, [tags, tagSearch]);
+
+  const filteredProductTypes = useMemo(() => {
+    return productTypes.filter(t => 
+      t.toLowerCase().includes(productTypeSearch.toLowerCase())
+    );
+  }, [productTypes, productTypeSearch]);
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter(c => 
+      c.title.toLowerCase().includes(categorySearch.toLowerCase())
+    );
+  }, [categories, categorySearch]);
+
+  const totalPages = Math.ceil((products.length || 1) / ITEMS_PER_PAGE);
 
   return (
     <AppLayout>
-      <div className="min-h-screen font-['DM_Sans']">
-
-        {/* Main Content */}
+      <div className="min-h-screen font-['DM_Sans'] bg-[#f5f4f1]">
         <div className="p-7">
           {/* Page Header */}
           <div className="flex items-start justify-between mb-6">
@@ -450,422 +610,406 @@ export default function ProductSelection() {
 
           {/* Filter Panel */}
           <div className="bg-white border border-[#e2e0db] rounded-xl p-5 mb-4">
-            {/* Status Tabs */}
-            <div className="flex items-center gap-1.5 mb-4">
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setFilters(prev => ({ ...prev, status: option.value }))}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-all",
-                    filters.status === option.value
-                      ? "bg-[#1a1917] text-white border-[#1a1917]"
-                      : "border border-[#e2e0db] bg-transparent text-[#6b6862] hover:border-[#c8c5be] hover:text-[#1a1917]"
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
             {/* Search and Filter Chips */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 border border-[#e2e0db] rounded-lg px-3 py-2 bg-[#f5f4f1] flex-1 max-w-[340px]">
-                <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={filters.searchQuery}
-                  onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
-                  className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
-                />
-              </div>
-
-              {/* Vendors Filter Chip */}
-              <div className="relative">
-                <button
-                  ref={vendorChipRef}
-                  onClick={() => setShowVendorDropdown(!showVendorDropdown)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all",
-                    filters.vendors.length > 0
-                      ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                      : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
-                  )}
-                >
-                  <Building className="w-3.5 h-3.5" />
-                  Vendors
-                  <ChevronDown className="w-3 h-3" />
-                </button>
+            <div className="space-y-3">
+              {/* Search Row */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 border border-[#e2e0db] rounded-lg px-3 py-2 bg-[#f5f4f1] flex-1">
+                  <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={filters.searchQuery}
+                    onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+                    className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                  />
+                </div>
                 
-                {showVendorDropdown && (
-                  <div
-                    ref={vendorDropdownRef}
-                    className="fixed z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] overflow-hidden"
-                    style={{
-                      top: (vendorChipRef.current?.getBoundingClientRect().bottom || 0) + 6,
-                      left: vendorChipRef.current?.getBoundingClientRect().left,
-                    }}
-                  >
-                    <div className="max-h-80 overflow-y-auto">
-                      <div
-                        onClick={() => selectVendor('')}
-                        className="flex items-center justify-between px-4 py-2.5 text-[13.5px] hover:bg-[#ede9ff] cursor-pointer border-b border-[#e2e0db]"
-                      >
-                        <span className="text-[#6b6862]">No vendor selected</span>
-                      </div>
-                      {vendors.map((vendor) => (
-                        <div
-                          key={vendor}
-                          onClick={() => selectVendor(vendor)}
-                          className="flex items-center justify-between px-4 py-2.5 text-[13.5px] hover:bg-[#ede9ff] cursor-pointer border-b border-[#e2e0db] last:border-b-0"
-                        >
-                          <span className="font-medium">{vendor}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Collections Filter Chip */}
-              <div className="relative">
-                <button
-                  ref={collectionChipRef}
-                  onClick={() => setShowCollectionDropdown(!showCollectionDropdown)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all",
-                    filters.collections.length > 0
-                      ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                      : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
-                  )}
+                {/* <select
+                  value={filters.searchField}
+                  onChange={(e) => setFilters(prev => ({ ...prev, searchField: e.target.value }))}
+                  className="border border-[#e2e0db] rounded-lg px-3 py-2 text-[13px] bg-white outline-none"
                 >
-                  <Layers className="w-3.5 h-3.5" />
-                  Collections
-                  <ChevronDown className="w-3 h-3" />
-                </button>
-                
-                {showCollectionDropdown && (
-                  <div
-                    ref={collectionDropdownRef}
-                    className="fixed z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] overflow-hidden"
-                    style={{
-                      top: (collectionChipRef.current?.getBoundingClientRect().bottom || 0) + 6,
-                      left: collectionChipRef.current?.getBoundingClientRect().left,
-                    }}
+                  {searchFields.map(field => (
+                    <option key={field.value} value={field.value}>{field.label}</option>
+                  ))}
+                </select> */}
+
+                {/* View Toggle */}
+                <div className="flex border border-[#e2e0db] rounded-lg overflow-hidden">
+                  <button
+                    className={cn(
+                      "p-2 border-r border-[#e2e0db] transition-colors",
+                      viewMode === "list" ? "bg-[#1a1917] text-white" : "bg-white text-[#9e9b95] hover:bg-[#f5f4f1]"
+                    )}
+                    onClick={() => setViewMode("list")}
                   >
-                    <div className="max-h-80 overflow-y-auto">
-                      <div
-                        onClick={() => {
-                          setActiveCollection(null);
-                          setFilters(prev => ({ ...prev, collections: [] }));
-                          setShowCollectionDropdown(false);
-                        }}
-                        className="flex items-center justify-between px-4 py-2.5 text-[13.5px] hover:bg-[#ede9ff] cursor-pointer border-b border-[#e2e0db]"
-                      >
-                        <span className="text-[#6b6862]">No collection selected</span>
-                      </div>
-                      {collections.map((collection) => (
-                        <div
-                          key={collection.id}
-                          onClick={() => selectCollection(collection)}
-                          className="flex items-center justify-between px-4 py-2.5 text-[13.5px] hover:bg-[#ede9ff] cursor-pointer border-b border-[#e2e0db] last:border-b-0"
-                        >
-                          <span className="font-medium">{collection.title}</span>
-                          <span className="text-[11px] bg-[#f0ede8] text-[#6b6862] px-2 py-1 rounded-full font-semibold">
-                            {collection.productsCount} products
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                    <List className="w-4 h-4" />
+                  </button>
+                  <button
+                    className={cn(
+                      "p-2 transition-colors",
+                      viewMode === "grid" ? "bg-[#1a1917] text-white" : "bg-white text-[#9e9b95] hover:bg-[#f5f4f1]"
+                    )}
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              {/* Product Type Filter Chip */}
-              <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
-                <DialogTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-3 py-2 border border-[#e2e0db] rounded-lg text-[13px] font-medium text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff] transition-all">
-                    <Tag className="w-3.5 h-3.5" />
-                    Product Type
+              {/* Filter Chips Row - Scrollable */}
+              <div className="flex items-center gap-2 pb-2 scrollbar-thin scrollbar-thumb-[#e2e0db]">
+                {/* Collections Filter */}
+                <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('collections', el)}>
+                  <button
+                    onClick={() => setOpenDropdown(openDropdown === 'collections' ? null : 'collections')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+                      filters.collections.length > 0
+                        ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                    )}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    Collections {filters.collections.length > 0 && `(${filters.collections.length})`}
                     <ChevronDown className="w-3 h-3" />
                   </button>
-                </DialogTrigger>
-
-                {/* Advanced Filters Dialog */}
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-bold">Advanced Filters</DialogTitle>
-                  </DialogHeader>
                   
-                  <div className="space-y-6 py-4">
-                    {/* Search Field Selection */}
-                    <div className="space-y-3">
-                      <Label className="font-medium">Search In</Label>
-                      <RadioGroup 
-                        value={filters.searchField} 
-                        onValueChange={(value) => setFilters(prev => ({ ...prev, searchField: value }))}
-                        className="grid grid-cols-2 gap-2"
-                      >
-                        {searchFields.map((field) => (
-                          <div key={field.value} className="flex items-center space-x-2">
-                            <RadioGroupItem value={field.value} id={`search-${field.value}`} />
-                            <Label htmlFor={`search-${field.value}`} className="text-sm cursor-pointer">
-                              {field.label}
-                            </Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    </div>
-
-                    {/* Product Types */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Product Types</Label>
-                        {filters.productTypes.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFilters(prev => ({ ...prev, productTypes: [] }))}
-                            className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            Clear
-                          </Button>
-                        )}
-                      </div>
-                      <RadioGroup 
-                        value={filters.productTypes[0] || ""} 
-                        onValueChange={(value) => {
-                          if (value === "") {
-                            setFilters(prev => ({ ...prev, productTypes: [] }));
-                          } else {
-                            setFilters(prev => ({ ...prev, productTypes: [value] }));
-                          }
-                        }}
-                        className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="" id="type-none" />
-                          <Label htmlFor="type-none" className="text-sm cursor-pointer text-gray-500">
-                            No type selected
-                          </Label>
+                  {openDropdown === 'collections' && (
+                    <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[280px] max-h-96 overflow-hidden">
+                      <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
+                        <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
+                          <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                          <input
+                            type="text"
+                            placeholder="Search collections..."
+                            value={collectionSearch}
+                            onChange={(e) => setCollectionSearch(e.target.value)}
+                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                          />
                         </div>
-                        {getProductTypes.map((type) => (
-                          <div key={type} className="flex items-center space-x-2">
-                            <RadioGroupItem value={type} id={`type-${type}`} />
-                            <Label htmlFor={`type-${type}`} className="text-sm cursor-pointer">
-                              {type}
-                            </Label>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto p-2">
+                        {filteredCollections.map((collection) => (
+                          <div
+                            key={collection.id}
+                            onClick={() => toggleFilterSelection('collections', collection.id, filters.collections)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ede9ff] cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={filters.collections.includes(collection.id)}
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                            />
+                            <span className="flex-1 text-[13px] font-medium">{collection.title}</span>
+                            <span className="text-[11px] bg-[#f0ede8] text-[#6b6862] px-2 py-1 rounded-full">
+                              {collection.productsCount}
+                            </span>
                           </div>
                         ))}
-                      </RadioGroup>
-                    </div>
-
-                    {/* Categories */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Categories</Label>
-                        {filters.categories.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                            className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            Clear
-                          </Button>
-                        )}
                       </div>
-                      <RadioGroup 
-                        value={filters.categories[0] || ""} 
-                        onValueChange={(value) => {
-                          if (value === "") {
-                            setFilters(prev => ({ ...prev, categories: [] }));
-                          } else {
-                            setFilters(prev => ({ ...prev, categories: [value] }));
-                          }
-                        }}
-                        className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="" id="category-none" />
-                          <Label htmlFor="category-none" className="text-sm cursor-pointer text-gray-500">
-                            No category selected
-                          </Label>
+                    </div>
+                  )}
+                </div>
+
+                {/* Vendors Filter */}
+                <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('vendors', el)}>
+                  <button
+                    onClick={() => setOpenDropdown(openDropdown === 'vendors' ? null : 'vendors')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+                      filters.vendors.length > 0
+                        ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                    )}
+                  >
+                    <Building className="w-3.5 h-3.5" />
+                    Vendors {filters.vendors.length > 0 && `(${filters.vendors.length})`}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  
+                  {openDropdown === 'vendors' && (
+                    <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
+                      <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
+                        <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
+                          <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                          <input
+                            type="text"
+                            placeholder="Search vendors..."
+                            value={vendorSearch}
+                            onChange={(e) => setVendorSearch(e.target.value)}
+                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                          />
                         </div>
-                        {getCategories.map((category) => (
-                          <div key={category.id} className="flex items-center space-x-2">
-                            <RadioGroupItem value={category.id} id={`category-${category.id}`} />
-                            <Label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
-                              {category.name}
-                            </Label>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto p-2">
+                        {filteredVendors.map((vendor) => (
+                          <div
+                            key={vendor}
+                            onClick={() => toggleFilterSelection('vendors', vendor, filters.vendors)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ede9ff] cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={filters.vendors.includes(vendor)}
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                            />
+                            <span className="text-[13px] font-medium">{vendor}</span>
                           </div>
                         ))}
-                      </RadioGroup>
+                      </div>
                     </div>
+                  )}
+                </div>
 
-                    {/* Tags */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Tags</Label>
-                        {filters.tags.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFilters(prev => ({ ...prev, tags: [] }))}
-                            className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            Clear
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                          placeholder="Search tags..."
-                          value={tagSearch}
-                          onChange={(e) => setTagSearch(e.target.value)}
-                          className="pl-9"
-                        />
-                        {tagSearch && (
-                          <button
-                            onClick={() => setTagSearch("")}
-                            className="absolute right-3 top-1/2 -translate-y-1/2"
-                          >
-                            <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                          </button>
-                        )}
-                      </div>
-                      
-                      <RadioGroup 
-                        value={filters.tags[0] || ""} 
-                        onValueChange={(value) => {
-                          if (value === "") {
-                            setFilters(prev => ({ ...prev, tags: [] }));
-                          } else {
-                            setFilters(prev => ({ ...prev, tags: [value] }));
-                          }
-                        }}
-                        className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="" id="tag-none" />
-                          <Label htmlFor="tag-none" className="text-sm cursor-pointer text-gray-500">
-                            No tag selected
-                          </Label>
+                {/* Tags Filter */}
+                <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('tags', el)}>
+                  <button
+                    onClick={() => setOpenDropdown(openDropdown === 'tags' ? null : 'tags')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+                      filters.tags.length > 0
+                        ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                    )}
+                  >
+                    <Tag className="w-3.5 h-3.5" />
+                    Tags {filters.tags.length > 0 && `(${filters.tags.length})`}
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  
+                  {openDropdown === 'tags' && (
+                    <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
+                      <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
+                        <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
+                          <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                          <input
+                            type="text"
+                            placeholder="Search tags..."
+                            value={tagSearch}
+                            onChange={(e) => setTagSearch(e.target.value)}
+                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                          />
                         </div>
-                        {filteredTags.map((tag) => (
-                          <div key={tag} className="flex items-center space-x-2">
-                            <RadioGroupItem value={tag} id={`tag-${tag}`} />
-                            <Label htmlFor={`tag-${tag}`} className="text-sm cursor-pointer truncate">
-                              {tag}
-                            </Label>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto p-2">
+                        {filteredTagsList.map((tag) => (
+                          <div
+                            key={tag}
+                            onClick={() => toggleFilterSelection('tags', tag, filters.tags)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ede9ff] cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={filters.tags.includes(tag)}
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                            />
+                            <span className="text-[13px] font-medium">{tag}</span>
                           </div>
                         ))}
-                      </RadioGroup>
+                      </div>
                     </div>
+                  )}
+                </div>
 
-                    {/* Date Filters */}
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label className="font-medium flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          Created After
-                        </Label>
-                        <DatePicker
-                          date={filters.createdAfter}
-                          onSelect={(date) => setFilters(prev => ({ ...prev, createdAfter: date }))}
-                        />
+                {/* Product Types Filter (conditional) */}
+                {availableFilterTypes.productTypes && (
+                  <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('productTypes', el)}>
+                    <button
+                      onClick={() => setOpenDropdown(openDropdown === 'productTypes' ? null : 'productTypes')}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-[#6046ff] rounded-lg text-[13px] font-medium text-[#6046ff] bg-[#ede9ff] whitespace-nowrap"
+                    >
+                      <Tag className="w-3.5 h-3.5" />
+                      Product Types {filters.productTypes.length > 0 && `(${filters.productTypes.length})`}
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                    
+                    {openDropdown === 'productTypes' && (
+                      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
+                        <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
+                          <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
+                            <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                            <input
+                              type="text"
+                              placeholder="Search product types..."
+                              value={productTypeSearch}
+                              onChange={(e) => setProductTypeSearch(e.target.value)}
+                              className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto p-2">
+                          {filteredProductTypes.map((type) => (
+                            <div
+                              key={type}
+                              onClick={() => toggleFilterSelection('productTypes', type, filters.productTypes)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ede9ff] cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={filters.productTypes.includes(type)}
+                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              />
+                              <span className="text-[13px] font-medium">{type}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="font-medium flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          Published After
-                        </Label>
-                        <DatePicker
-                          date={filters.publishedAfter}
-                          onSelect={(date) => setFilters(prev => ({ ...prev, publishedAfter: date }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="font-medium flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          Updated After
-                        </Label>
-                        <DatePicker
-                          date={filters.updatedAfter}
-                          onSelect={(date) => setFilters(prev => ({ ...prev, updatedAfter: date }))}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 pt-4 border-t">
-                      <Button variant="outline" onClick={resetFilters}>
-                        Reset All
-                      </Button>
-                      <Button 
-                        onClick={applyFilters} 
-                        disabled={applyingFilters}
-                        className="bg-[#6046ff] hover:bg-[#4f38d4] text-white"
-                      >
-                        {applyingFilters ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Applying...
-                          </>
-                        ) : (
-                          'Apply Filters'
-                        )}
-                      </Button>
-                    </div>
+                    )}
                   </div>
-                </DialogContent>
-              </Dialog>
+                )}
 
-              {/* View Toggle */}
-              <div className="flex border border-[#e2e0db] rounded-lg overflow-hidden ml-auto">
-                <button
-                  className={cn(
-                    "p-2 border-r border-[#e2e0db] transition-colors",
-                    viewMode === "list" ? "bg-[#1a1917] text-white" : "bg-white text-[#9e9b95] hover:bg-[#f5f4f1]"
-                  )}
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-                <button
-                  className={cn(
-                    "p-2 transition-colors",
-                    viewMode === "grid" ? "bg-[#1a1917] text-white" : "bg-white text-[#9e9b95] hover:bg-[#f5f4f1]"
-                  )}
-                  onClick={() => setViewMode("grid")}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
+                {/* Categories Filter (conditional) */}
+                {availableFilterTypes.categories && (
+                  <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('categories', el)}>
+                    <button
+                      onClick={() => setOpenDropdown(openDropdown === 'categories' ? null : 'categories')}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-[#6046ff] rounded-lg text-[13px] font-medium text-[#6046ff] bg-[#ede9ff] whitespace-nowrap"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      Categories {filters.categories.length > 0 && `(${filters.categories.length})`}
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                    
+                    {openDropdown === 'categories' && (
+                      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
+                        <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
+                          <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
+                            <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                            <input
+                              type="text"
+                              placeholder="Search categories..."
+                              value={categorySearch}
+                              onChange={(e) => setCategorySearch(e.target.value)}
+                              className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto p-2">
+                          {filteredCategories.map((category) => (
+                            <div
+                              key={category.id}
+                              onClick={() => toggleFilterSelection('categories', category.id, filters.categories)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#ede9ff] cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={filters.categories.includes(category.id)}
+                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              />
+                              <span className="text-[13px] font-medium">{category.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Date Filters (conditional) */}
+                {availableFilterTypes.dates && (
+                  <>
+                    {dateFilters.map((dateFilter) => (
+                      <div key={dateFilter.field} className="relative flex-shrink-0">
+                        <Popover open={datePickerOpen[dateFilter.field]} onOpenChange={(open) => 
+                          setDatePickerOpen(prev => ({ ...prev, [dateFilter.field]: open }))
+                        }>
+                          <PopoverTrigger asChild>
+                            <button
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+                                filters[dateFilter.field]
+                                  ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+                                  : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                              )}
+                            >
+                              <Calendar className="w-3.5 h-3.5" />
+                              {dateFilter.label}
+                              {filters[dateFilter.field] && (
+                                <span className="ml-1">
+                                  ({format(filters[dateFilter.field]!, 'MM/dd/yyyy')})
+                                </span>
+                              )}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={filters[dateFilter.field]}
+                              onSelect={(date) => {
+                                setFilters(prev => ({ ...prev, [dateFilter.field]: date }));
+                                setDatePickerOpen(prev => ({ ...prev, [dateFilter.field]: false }));
+                                setTimeout(() => fetchProducts(), 0);
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* More Filters Button */}
+                <div className="relative flex-shrink-0">
+                  <Popover open={openDropdown === 'more'} onOpenChange={(open) => setOpenDropdown(open ? 'more' : null)}>
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center gap-1.5 px-3 py-2 border border-[#e2e0db] rounded-lg text-[13px] font-medium text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff] transition-all whitespace-nowrap">
+                        <Plus className="w-3.5 h-3.5" />
+                        More Filters
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2" align="start">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => addFilterType('productTypes')}
+                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-[#ede9ff] rounded-lg transition-colors"
+                        >
+                          Product Types
+                        </button>
+                        <button
+                          onClick={() => addFilterType('categories')}
+                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-[#ede9ff] rounded-lg transition-colors"
+                        >
+                          Categories
+                        </button>
+                        <button
+                          onClick={() => addFilterType('dates')}
+                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-[#ede9ff] rounded-lg transition-colors"
+                        >
+                          Date Filters
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
+
+              {/* Active Filter Chips */}
+              {activeFilterChips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#e2e0db]">
+                  {activeFilterChips.map((chip) => (
+                    <div
+                      key={chip.id}
+                      className="flex items-center gap-1.5 px-2 py-1 bg-[#ede9ff] text-[#6046ff] rounded-lg text-[12px] font-medium"
+                    >
+                      <span>{chip.label}</span>
+                      <button
+                        onClick={() => removeFilterChip(chip)}
+                        className="hover:text-[#4f38d4]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {activeFilterChips.length > 0 && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="text-[12px] text-[#6b6862] hover:text-[#1a1917] underline"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Collection Heading (when collection is selected) */}
-          {activeCollection && (
-            <div className="flex items-center gap-2.5 mb-3 animate-fadeIn">
-              <h2 className="text-lg font-bold text-[#1a1917]">
-                {activeCollection.title} ({activeCollection.productsCount} products)
-              </h2>
-              <button
-                onClick={() => {
-                  setActiveCollection(null);
-                  setFilters(prev => ({ ...prev, collections: [] }));
-                }}
-                className="flex items-center gap-1.5 bg-white border border-[#e2e0db] rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#6b6862] hover:border-[#c8c5be] hover:text-[#1a1917] transition-all"
-              >
-                <X className="w-3.5 h-3.5" />
-                Clear filter
-              </button>
-            </div>
-          )}
 
           {/* Loading State */}
           {loading ? (
@@ -878,29 +1022,77 @@ export default function ProductSelection() {
             <>
               {/* Product Table/Grid */}
               <div className="bg-white border border-[#e2e0db] rounded-xl overflow-hidden">
-                {/* Table Meta */}
+                {/* Table Meta with Pagination */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-[#e2e0db]">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                      onCheckedChange={toggleAll}
-                      className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] data-[state=checked]:border-[#6046ff]"
-                    />
-                    <span className="text-[12.5px] text-[#6b6862]">
-                      {selectedProducts.length} of {filteredProducts.length} products selected
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectAllOnPage}
+                        onCheckedChange={toggleAllOnPage}
+                        className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                      />
+                      <span className="text-[12.5px] text-[#6b6862]">
+                        Select all on page ({products.length})
+                      </span>
+                    </div>
+                    <button
+                      onClick={selectAllFiltered}
+                      className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
+                    >
+                      Select all filtered
+                    </button>
                     {selectedProducts.length > 0 && (
-                      <button
-                        onClick={() => setSelectedProducts([])}
-                        className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
-                      >
-                        Clear selection
-                      </button>
+                      <>
+                        <span className="text-[12.5px] text-[#6b6862]">
+                          {selectedProducts.length} selected
+                        </span>
+                        <button
+                          onClick={() => setSelectedProducts([])}
+                          className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
+                        >
+                          Clear
+                        </button>
+                      </>
                     )}
                   </div>
-                  <span className="text-[12.5px] text-[#6b6862]">
-                    Page {currentPage} • {products.length} total
-                  </span>
+                  
+                  {/* Pagination Controls */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-[12.5px] text-[#6b6862]">
+                      Page {currentPageIndex + 1} of {totalPages}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleFirstPage}
+                        disabled={currentPageIndex === 0 || loadingMore}
+                        className="p-1.5 rounded border border-[#e2e0db] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f4f1]"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handlePrevPage}
+                        disabled={currentPageIndex === 0 || loadingMore}
+                        className="p-1.5 rounded border border-[#e2e0db] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f4f1]"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleNextPage}
+                        disabled={!pageInfo?.hasNextPage || loadingMore}
+                        className="p-1.5 rounded border border-[#e2e0db] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f4f1]"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleNextPage}
+                        disabled={!pageInfo?.hasNextPage || loadingMore}
+                        className="p-1.5 rounded border border-[#e2e0db] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f4f1]"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {loadingMore && <Loader2 className="w-4 h-4 animate-spin text-[#6046ff]" />}
+                  </div>
                 </div>
 
                 {/* Table Header (List View) */}
@@ -919,7 +1111,7 @@ export default function ProductSelection() {
                 {/* Products */}
                 {viewMode === "list" ? (
                   <div className="divide-y divide-[#e2e0db]">
-                    {filteredProducts.map((product, index) => {
+                    {products.map((product, index) => {
                       const isSelected = selectedProducts.includes(product.id);
                       const variant = product.variants.edges[0]?.node;
                       const sku = variant?.sku || 'No SKU';
@@ -937,15 +1129,13 @@ export default function ProductSelection() {
                           onClick={() => toggleProduct(product.id)}
                           className={cn(
                             "grid grid-cols-[40px_56px_1fr_100px_110px_80px_70px] items-center px-5 py-3 cursor-pointer transition-all hover:bg-[#f5f4f1]",
-                            isSelected && "bg-[#ede9ff] hover:bg-[#ede9ff]",
-                            `animate-fadeIn animation-delay-${index * 30}`
+                            isSelected && "bg-[#ede9ff] hover:bg-[#ede9ff]"
                           )}
-                          style={{ animationDelay: `${index * 30}ms` }}
                         >
                           <div>
                             <Checkbox 
                               checked={isSelected} 
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] data-[state=checked]:border-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
                             />
                           </div>
                           <div>
@@ -990,8 +1180,8 @@ export default function ProductSelection() {
                     })}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-4 p-5">
-                    {filteredProducts.map((product) => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
+                    {products.map((product) => {
                       const isSelected = selectedProducts.includes(product.id);
                       const imageUrl = product.featuredMedia?.preview.image.url || 
                         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop';
@@ -1014,7 +1204,7 @@ export default function ProductSelection() {
                           <div className="flex items-start gap-3">
                             <Checkbox 
                               checked={isSelected} 
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] data-[state=checked]:border-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
                             />
                             <img
                               src={imageUrl}
@@ -1040,52 +1230,17 @@ export default function ProductSelection() {
                   </div>
                 )}
 
-                {/* Load More */}
-                {pageInfo?.hasNextPage && filteredProducts.length > 0 && (
-                  <div className="flex justify-center py-4 border-t border-[#e2e0db]">
-                    <Button
-                      onClick={loadMoreProducts}
-                      disabled={loadingMore}
-                      variant="outline"
-                      className="px-8 text-sm"
-                    >
-                      {loadingMore ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4 mr-2" />
-                          Load More Products
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-
                 {/* Empty State */}
-                {filteredProducts.length === 0 && (
-                  <div className="text-center py-16 bg-gradient-to-b from-white to-gray-50">
+                {products.length === 0 && (
+                  <div className="text-center py-16">
                     <Package className="w-16 h-16 text-[#9e9b95] mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-[#1a1917]">No products found</h3>
                     <p className="text-sm text-[#6b6862] mt-2 mb-6 max-w-md mx-auto">
-                      {filters.searchQuery || getActiveFilterCount() > 0 
-                        ? 'Try adjusting your filters or search query' 
-                        : 'No products available in your store'}
+                      Try adjusting your filters or search query
                     </p>
-                    <div className="flex gap-3 justify-center">
-                      <Button variant="outline" onClick={resetFilters}>
-                        Reset Filters
-                      </Button>
-                      <Button 
-                        onClick={() => setFilterOpen(true)}
-                        className="bg-[#6046ff] hover:bg-[#4f38d4] text-white"
-                      >
-                        <Filter className="w-4 h-4 mr-2" />
-                        Adjust Filters
-                      </Button>
-                    </div>
+                    <Button variant="outline" onClick={clearAllFilters}>
+                      Clear all filters
+                    </Button>
                   </div>
                 )}
               </div>
