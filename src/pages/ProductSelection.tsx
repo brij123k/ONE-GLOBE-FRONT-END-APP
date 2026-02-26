@@ -360,7 +360,7 @@ export default function ProductSelection() {
       if (category) chips.push({ 
         id: `category-${c}`, 
         type: 'category', 
-        label: category.name, 
+        label: category.title, 
         value: c,
         field: 'categories' 
       });
@@ -625,7 +625,7 @@ export default function ProductSelection() {
                   />
                 </div>
                 
-                {/* <select
+                <select
                   value={filters.searchField}
                   onChange={(e) => setFilters(prev => ({ ...prev, searchField: e.target.value }))}
                   className="border border-[#e2e0db] rounded-lg px-3 py-2 text-[13px] bg-white outline-none"
@@ -633,7 +633,7 @@ export default function ProductSelection() {
                   {searchFields.map(field => (
                     <option key={field.value} value={field.value}>{field.label}</option>
                   ))}
-                </select> */}
+                </select>
 
                 {/* View Toggle */}
                 <div className="flex border border-[#e2e0db] rounded-lg overflow-hidden">
@@ -893,7 +893,7 @@ export default function ProductSelection() {
                                 checked={filters.categories.includes(category.id)}
                                 className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
                               />
-                              <span className="text-[13px] font-medium">{category.name}</span>
+                              <span className="text-[13px] font-medium">{category.title}</span>
                             </div>
                           ))}
                         </div>
