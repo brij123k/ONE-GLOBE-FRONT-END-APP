@@ -79,7 +79,7 @@ interface Collection {
 }
 
 interface FilterState {
-  status?: string;
+  status: string;
   collections: string[];
   searchField: string;
   searchQuery: string;
@@ -124,9 +124,6 @@ const serviceTitles: Record<string, string> = {
 const searchFields = [
   { value: "title", label: "Title" },
   { value: "handle", label: "Handle" },
-  { value: "description", label: "Description" },
-  { value: "vendor", label: "Vendor" },
-  { value: "productType", label: "Type" },
   { value: "sku", label: "SKU" },
 ];
 
@@ -143,35 +140,37 @@ const dateFilters: DateFilterType[] = [
   { field: 'updatedAfter', label: 'Updated After' },
 ];
 
-const ITEMS_PER_PAGE = 40;
+const ITEMS_PER_PAGE = 50;
 
 export default function ProductSelection() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const service = searchParams.get("service") || "title";
-  
+
   // View state
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectAllOnPage, setSelectAllOnPage] = useState(false);
-  
+  const [selectAllFiltered, setSelectAllFiltered] = useState(false);
+
   // Data states
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [vendors, setVendors] = useState<string[]>([]);
   const [productTypes, setProductTypes] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [categories, setCategories] = useState<{id: string, title: string}[]>([]);
-  
+  const [categories, setCategories] = useState<{ id: string, title: string }[]>([]);
+
   // Loading states
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  
+  const [totalFilteredCount, setTotalFilteredCount] = useState<number>(0);
+
   // Pagination
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
   const [cursors, setCursors] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  
+
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     status: "all",
@@ -186,7 +185,7 @@ export default function ProductSelection() {
 
   // Active filter chips
   const [activeFilterChips, setActiveFilterChips] = useState<FilterChip[]>([]);
-  
+
   // Available filter types for "More Filters"
   const [availableFilterTypes, setAvailableFilterTypes] = useState<{
     productTypes: boolean;
@@ -207,7 +206,7 @@ export default function ProductSelection() {
 
   // Dropdown states
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  
+
   // Date picker states
   const [datePickerOpen, setDatePickerOpen] = useState<{
     createdAfter: boolean;
@@ -221,6 +220,8 @@ export default function ProductSelection() {
 
   // Refs for click outside
   const dropdownRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const moreFiltersButtonRef = useRef<HTMLButtonElement>(null);
+  const moreFiltersPopoverRef = useRef<HTMLDivElement>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -230,13 +231,21 @@ export default function ProductSelection() {
   // Handle click outside for dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      let shouldClose = true;
+      // Check if click is outside all dropdowns
+      let isOutsideAll = true;
       dropdownRefs.current.forEach((ref) => {
         if (ref.contains(event.target as Node)) {
-          shouldClose = false;
+          isOutsideAll = false;
         }
       });
-      if (shouldClose) {
+
+      // Check if click is outside more filters popover
+      if (moreFiltersPopoverRef.current?.contains(event.target as Node) ||
+        moreFiltersButtonRef.current?.contains(event.target as Node)) {
+        isOutsideAll = false;
+      }
+
+      if (isOutsideAll) {
         setOpenDropdown(null);
         setCollectionSearch("");
         setVendorSearch("");
@@ -250,11 +259,21 @@ export default function ProductSelection() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Update selected products when selectAllFiltered changes
+  useEffect(() => {
+    if (selectAllFiltered) {
+      // This would need a backend endpoint to get all filtered product IDs
+      // For now, we'll just select all on current page
+      setSelectedProducts(products.map(p => p.id));
+      setSelectAllOnPage(true);
+    }
+  }, [selectAllFiltered, products]);
+
   // Fetch products with current filters
   const fetchProducts = useCallback(async (cursor?: string, direction: 'next' | 'prev' = 'next') => {
     try {
       setLoadingMore(true);
-      const params: any = { 
+      const params: any = {
         limit: ITEMS_PER_PAGE,
       };
 
@@ -266,8 +285,11 @@ export default function ProductSelection() {
         }
       }
 
-      // Add all active filters
-      if (filters.status && filters.status !== 'all') params.status = filters.status;
+      // Add all active filters - FIXED: Always send status, send "all" as empty
+      if (filters.status && filters.status !== 'all') {
+        params.status = filters.status;
+      }
+
       if (filters.collections.length > 0) params.collections = filters.collections.join(',');
       if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
       if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
@@ -278,11 +300,15 @@ export default function ProductSelection() {
       if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
       if (filters.searchQuery) params[filters.searchField] = filters.searchQuery;
 
+      console.log('Fetching products with params:', params);
       const response = await getApi(ApiConfig.getProducts, params);
-      
+
       setProducts(response.products.map((p: any) => p.node));
       setPageInfo(response.pageInfo);
-      
+
+      // You might want to get total count from response if available
+      // setTotalFilteredCount(response.totalCount || response.products.length);
+
       // Update cursors for pagination
       if (direction === 'next' && cursor) {
         setCursors(prev => [...prev, cursor]);
@@ -294,9 +320,13 @@ export default function ProductSelection() {
         setCursors([]);
         setCurrentPageIndex(0);
       }
-      
-      setSelectedProducts([]);
-      setSelectAllOnPage(false);
+
+      // Don't clear selections when loading more pages
+      if (!cursor) {
+        setSelectedProducts([]);
+        setSelectAllOnPage(false);
+        setSelectAllFiltered(false);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -319,77 +349,77 @@ export default function ProductSelection() {
   // Update active filter chips when filters change
   useEffect(() => {
     const chips: FilterChip[] = [];
-    
-    filters.vendors.forEach(v => chips.push({ 
-      id: `vendor-${v}`, 
-      type: 'vendor', 
-      label: v, 
+
+    filters.vendors.forEach(v => chips.push({
+      id: `vendor-${v}`,
+      type: 'vendor',
+      label: v,
       value: v,
-      field: 'vendors' 
+      field: 'vendors'
     }));
-    
+
     filters.collections.forEach(c => {
       const collection = collections.find(col => col.id === c);
-      if (collection) chips.push({ 
-        id: `collection-${c}`, 
-        type: 'collection', 
-        label: collection.title, 
+      if (collection) chips.push({
+        id: `collection-${c}`,
+        type: 'collection',
+        label: collection.title,
         value: c,
-        field: 'collections' 
+        field: 'collections'
       });
     });
-    
-    filters.tags.forEach(t => chips.push({ 
-      id: `tag-${t}`, 
-      type: 'tag', 
-      label: t, 
+
+    filters.tags.forEach(t => chips.push({
+      id: `tag-${t}`,
+      type: 'tag',
+      label: t,
       value: t,
-      field: 'tags' 
+      field: 'tags'
     }));
-    
-    filters.productTypes.forEach(p => chips.push({ 
-      id: `productType-${p}`, 
-      type: 'productType', 
-      label: p, 
+
+    filters.productTypes.forEach(p => chips.push({
+      id: `productType-${p}`,
+      type: 'productType',
+      label: p,
       value: p,
-      field: 'productTypes' 
+      field: 'productTypes'
     }));
-    
+
     filters.categories.forEach(c => {
       const category = categories.find(cat => cat.id === c);
-      if (category) chips.push({ 
-        id: `category-${c}`, 
-        type: 'category', 
-        label: category.title, 
+      if (category) chips.push({
+        id: `category-${c}`,
+        type: 'category',
+        label: category.title,
         value: c,
-        field: 'categories' 
+        field: 'categories'
       });
     });
-    
-    if (filters.createdAfter) chips.push({ 
-      id: 'createdAfter', 
-      type: 'date', 
-      label: `Created: ${format(filters.createdAfter, 'MM/dd/yyyy')}`, 
+
+    if (filters.createdAfter) chips.push({
+      id: 'createdAfter',
+      type: 'date',
+      label: `Created: ${format(filters.createdAfter, 'MM/dd/yyyy')}`,
       value: 'createdAfter',
-      field: 'createdAfter' 
+      field: 'createdAfter'
     });
-    
-    if (filters.publishedAfter) chips.push({ 
-      id: 'publishedAfter', 
-      type: 'date', 
-      label: `Published: ${format(filters.publishedAfter, 'MM/dd/yyyy')}`, 
+
+    if (filters.publishedAfter) chips.push({
+      id: 'publishedAfter',
+      type: 'date',
+      label: `Published: ${format(filters.publishedAfter, 'MM/dd/yyyy')}`,
       value: 'publishedAfter',
-      field: 'publishedAfter' 
+      field: 'publishedAfter'
     });
-    
-    if (filters.updatedAfter) chips.push({ 
-      id: 'updatedAfter', 
-      type: 'date', 
-      label: `Updated: ${format(filters.updatedAfter, 'MM/dd/yyyy')}`, 
+
+    if (filters.updatedAfter) chips.push({
+      id: 'updatedAfter',
+      type: 'date',
+      label: `Updated: ${format(filters.updatedAfter, 'MM/dd/yyyy')}`,
       value: 'updatedAfter',
-      field: 'updatedAfter' 
+      field: 'updatedAfter'
     });
-    
+
     setActiveFilterChips(chips);
   }, [filters, collections, categories]);
 
@@ -401,19 +431,21 @@ export default function ProductSelection() {
       await fetchProducts();
 
       // Fetch filter options in parallel
-      const [collectionsRes, vendorsRes, typesRes, tagsRes, categoriesRes] = await Promise.all([
+      const [collectionsRes, vendorsRes, typesRes, tagsRes,
+        //  categoriesRes
+        ] = await Promise.all([
         getApi(ApiConfig.getCollections),
         getApi(ApiConfig.getVendors),
         getApi(ApiConfig.getProductType),
         getApi(ApiConfig.getTags),
-        getApi(ApiConfig.getCategories),
+        // getApi(ApiConfig.getCategories),
       ]);
 
       setCollections(collectionsRes.collections || []);
       setVendors(vendorsRes.vendors || []);
       setProductTypes(typesRes.productTypes || []);
       setTags(tagsRes.tags || []);
-      setCategories(categoriesRes.categories || []);
+      // setCategories(categoriesRes.categories || []);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -443,13 +475,21 @@ export default function ProductSelection() {
     }
   };
 
+  const handleLastPage = () => {
+    // This would need the last cursor from somewhere
+    // For now, just go to next page until end
+    if (pageInfo?.hasNextPage) {
+      handleNextPage();
+    }
+  };
+
   const toggleFilterSelection = (type: keyof FilterState, value: string, currentValues: string[]) => {
     const newValues = currentValues.includes(value)
       ? currentValues.filter(v => v !== value)
       : [...currentValues, value];
-    
+
     setFilters(prev => ({ ...prev, [type]: newValues }));
-    
+
     // Trigger product fetch immediately
     setTimeout(() => {
       fetchProducts();
@@ -459,19 +499,19 @@ export default function ProductSelection() {
   const removeFilterChip = (chip: FilterChip) => {
     setFilters(prev => {
       const newFilters = { ...prev };
-      
-      if (chip.field === 'vendors' || chip.field === 'collections' || 
-          chip.field === 'tags' || chip.field === 'productTypes' || 
-          chip.field === 'categories') {
+
+      if (chip.field === 'vendors' || chip.field === 'collections' ||
+        chip.field === 'tags' || chip.field === 'productTypes' ||
+        chip.field === 'categories') {
         newFilters[chip.field] = (prev[chip.field] as string[]).filter(v => v !== chip.value);
-      } else if (chip.field === 'createdAfter' || chip.field === 'publishedAfter' || 
-                 chip.field === 'updatedAfter') {
+      } else if (chip.field === 'createdAfter' || chip.field === 'publishedAfter' ||
+        chip.field === 'updatedAfter') {
         newFilters[chip.field] = undefined;
       }
-      
+
       return newFilters;
     });
-    
+
     // Trigger product fetch immediately
     setTimeout(() => {
       fetchProducts();
@@ -489,6 +529,11 @@ export default function ProductSelection() {
       tags: [],
       categories: [],
     });
+    setAvailableFilterTypes({
+      productTypes: false,
+      categories: false,
+      dates: false,
+    });
     fetchProducts();
   };
 
@@ -501,32 +546,73 @@ export default function ProductSelection() {
   };
 
   const toggleProduct = (id: string) => {
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
+    setSelectedProducts((prev) => {
+      const newSelection = prev.includes(id)
+        ? prev.filter((p) => p !== id)
+        : [...prev, id];
+
+      // Update select all states
+      setSelectAllOnPage(products.every(p => newSelection.includes(p.id)));
+      setSelectAllFiltered(false);
+
+      return newSelection;
+    });
   };
 
   const toggleAllOnPage = () => {
+    const pageProductIds = products.map(p => p.id);
+
     if (selectAllOnPage) {
-      setSelectedProducts(prev => 
-        prev.filter(id => !products.map(p => p.id).includes(id))
+      setSelectedProducts(prev =>
+        prev.filter(id => !pageProductIds.includes(id))
       );
+      setSelectAllOnPage(false);
     } else {
-      const pageProductIds = products.map(p => p.id);
-      setSelectedProducts(prev => [...new Set([...prev, ...pageProductIds])]);
+      setSelectedProducts(prev => {
+        const newSelection = [...new Set([...prev, ...pageProductIds])];
+        return newSelection;
+      });
+      setSelectAllOnPage(true);
     }
-    setSelectAllOnPage(!selectAllOnPage);
+    setSelectAllFiltered(false);
   };
 
-  const selectAllFiltered = () => {
-    // This would need a backend endpoint to get all filtered product IDs
-    // For now, we'll just select all on current page
-    toggleAllOnPage();
+  const handleSelectAllFiltered = async () => {
+    try {
+      setSelectAllFiltered(true);
+
+      // Fetch all product IDs with current filters
+      const params: any = {
+        limit: 250, // Maximum allowed by Shopify
+        fields: 'id' // Only fetch IDs
+      };
+
+      if (filters.status && filters.status !== 'all') params.status = filters.status;
+      if (filters.collections.length > 0) params.collections = filters.collections.join(',');
+      if (filters.vendors.length > 0) params.vendors = filters.vendors.join(',');
+      if (filters.productTypes.length > 0) params.productTypes = filters.productTypes.join(',');
+      if (filters.tags.length > 0) params.tags = filters.tags.join(',');
+      if (filters.categories.length > 0) params.categories = filters.categories.join(',');
+      if (filters.createdAfter) params.createdAfter = filters.createdAfter.toISOString();
+      if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
+      if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
+      if (filters.searchQuery) params[filters.searchField] = filters.searchQuery;
+
+      // You would need a separate endpoint to get all IDs
+      // For now, we'll just select all on current page
+      const allIds = products.map(p => p.id);
+      setSelectedProducts(allIds);
+      setSelectAllOnPage(true);
+
+    } catch (error) {
+      console.error('Error selecting all filtered products:', error);
+    }
   };
 
   const handleContinue = async () => {
     if (selectedProducts.length > 0) {
       try {
+        // Store selected products with service name
         await postApi(ApiConfig.storeProduct, {
           serviceName: service,
           productIds: selectedProducts
@@ -555,31 +641,31 @@ export default function ProductSelection() {
   };
 
   const filteredCollections = useMemo(() => {
-    return collections.filter(c => 
+    return collections.filter(c =>
       c.title.toLowerCase().includes(collectionSearch.toLowerCase())
     );
   }, [collections, collectionSearch]);
 
   const filteredVendors = useMemo(() => {
-    return vendors.filter(v => 
+    return vendors.filter(v =>
       v.toLowerCase().includes(vendorSearch.toLowerCase())
     );
   }, [vendors, vendorSearch]);
 
   const filteredTagsList = useMemo(() => {
-    return tags.filter(t => 
+    return tags.filter(t =>
       t.toLowerCase().includes(tagSearch.toLowerCase())
     );
   }, [tags, tagSearch]);
 
   const filteredProductTypes = useMemo(() => {
-    return productTypes.filter(t => 
+    return productTypes.filter(t =>
       t.toLowerCase().includes(productTypeSearch.toLowerCase())
     );
   }, [productTypes, productTypeSearch]);
 
   const filteredCategories = useMemo(() => {
-    return categories.filter(c => 
+    return categories.filter(c =>
       c.title.toLowerCase().includes(categorySearch.toLowerCase())
     );
   }, [categories, categorySearch]);
@@ -610,6 +696,24 @@ export default function ProductSelection() {
 
           {/* Filter Panel */}
           <div className="bg-white border border-[#e2e0db] rounded-xl p-5 mb-4">
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+              {statusOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setFilters(prev => ({ ...prev, status: option.value }))}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap",
+                    filters.status === option.value
+                      ? "bg-[#1a1917] text-white border-[#1a1917]"
+                      : "border border-[#e2e0db] bg-transparent text-[#6b6862] hover:border-[#c8c5be] hover:text-[#1a1917]"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
             {/* Search and Filter Chips */}
             <div className="space-y-3">
               {/* Search Row */}
@@ -624,7 +728,7 @@ export default function ProductSelection() {
                     className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
                   />
                 </div>
-                
+
                 <select
                   value={filters.searchField}
                   onChange={(e) => setFilters(prev => ({ ...prev, searchField: e.target.value }))}
@@ -658,10 +762,9 @@ export default function ProductSelection() {
                 </div>
               </div>
 
-              {/* Filter Chips Row - Scrollable */}
-              <div className="flex items-center gap-2 pb-2 scrollbar-thin scrollbar-thumb-[#e2e0db]">
+              <div className="flex flex-wrap items-center gap-2 pb-2">
                 {/* Collections Filter */}
-                <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('collections', el)}>
+                <div className="relative" ref={el => el && dropdownRefs.current.set('collections', el)}>
                   <button
                     onClick={() => setOpenDropdown(openDropdown === 'collections' ? null : 'collections')}
                     className={cn(
@@ -671,22 +774,24 @@ export default function ProductSelection() {
                         : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
                     )}
                   >
-                    <Layers className="w-3.5 h-3.5" />
-                    Collections {filters.collections.length > 0 && `(${filters.collections.length})`}
-                    <ChevronDown className="w-3 h-3" />
+                    <Layers className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate max-w-[100px] sm:max-w-none">
+                      Collections {filters.collections.length > 0 && `(${filters.collections.length})`}
+                    </span>
+                    <ChevronDown className="w-3 h-3 flex-shrink-0" />
                   </button>
-                  
+
                   {openDropdown === 'collections' && (
                     <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[280px] max-h-96 overflow-hidden">
                       <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
                         <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
-                          <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                          <Search className="w-3.5 h-3.5 text-[#9e9b95] flex-shrink-0" />
                           <input
                             type="text"
                             placeholder="Search collections..."
                             value={collectionSearch}
                             onChange={(e) => setCollectionSearch(e.target.value)}
-                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1 min-w-0"
                           />
                         </div>
                       </div>
@@ -699,10 +804,10 @@ export default function ProductSelection() {
                           >
                             <Checkbox
                               checked={filters.collections.includes(collection.id)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
                             />
-                            <span className="flex-1 text-[13px] font-medium">{collection.title}</span>
-                            <span className="text-[11px] bg-[#f0ede8] text-[#6b6862] px-2 py-1 rounded-full">
+                            <span className="flex-1 text-[13px] font-medium truncate">{collection.title}</span>
+                            <span className="text-[11px] bg-[#f0ede8] text-[#6b6862] px-2 py-1 rounded-full flex-shrink-0">
                               {collection.productsCount}
                             </span>
                           </div>
@@ -713,7 +818,7 @@ export default function ProductSelection() {
                 </div>
 
                 {/* Vendors Filter */}
-                <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('vendors', el)}>
+                <div className="relative" ref={el => el && dropdownRefs.current.set('vendors', el)}>
                   <button
                     onClick={() => setOpenDropdown(openDropdown === 'vendors' ? null : 'vendors')}
                     className={cn(
@@ -723,22 +828,24 @@ export default function ProductSelection() {
                         : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
                     )}
                   >
-                    <Building className="w-3.5 h-3.5" />
-                    Vendors {filters.vendors.length > 0 && `(${filters.vendors.length})`}
-                    <ChevronDown className="w-3 h-3" />
+                    <Building className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate max-w-[100px] sm:max-w-none">
+                      Vendors {filters.vendors.length > 0 && `(${filters.vendors.length})`}
+                    </span>
+                    <ChevronDown className="w-3 h-3 flex-shrink-0" />
                   </button>
-                  
+
                   {openDropdown === 'vendors' && (
                     <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
                       <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
                         <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
-                          <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                          <Search className="w-3.5 h-3.5 text-[#9e9b95] flex-shrink-0" />
                           <input
                             type="text"
                             placeholder="Search vendors..."
                             value={vendorSearch}
                             onChange={(e) => setVendorSearch(e.target.value)}
-                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1 min-w-0"
                           />
                         </div>
                       </div>
@@ -751,9 +858,9 @@ export default function ProductSelection() {
                           >
                             <Checkbox
                               checked={filters.vendors.includes(vendor)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
                             />
-                            <span className="text-[13px] font-medium">{vendor}</span>
+                            <span className="text-[13px] font-medium truncate">{vendor}</span>
                           </div>
                         ))}
                       </div>
@@ -762,7 +869,7 @@ export default function ProductSelection() {
                 </div>
 
                 {/* Tags Filter */}
-                <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('tags', el)}>
+                <div className="relative" ref={el => el && dropdownRefs.current.set('tags', el)}>
                   <button
                     onClick={() => setOpenDropdown(openDropdown === 'tags' ? null : 'tags')}
                     className={cn(
@@ -772,22 +879,24 @@ export default function ProductSelection() {
                         : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
                     )}
                   >
-                    <Tag className="w-3.5 h-3.5" />
-                    Tags {filters.tags.length > 0 && `(${filters.tags.length})`}
-                    <ChevronDown className="w-3 h-3" />
+                    <Tag className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate max-w-[100px] sm:max-w-none">
+                      Tags {filters.tags.length > 0 && `(${filters.tags.length})`}
+                    </span>
+                    <ChevronDown className="w-3 h-3 flex-shrink-0" />
                   </button>
-                  
+
                   {openDropdown === 'tags' && (
                     <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
                       <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
                         <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
-                          <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                          <Search className="w-3.5 h-3.5 text-[#9e9b95] flex-shrink-0" />
                           <input
                             type="text"
                             placeholder="Search tags..."
                             value={tagSearch}
                             onChange={(e) => setTagSearch(e.target.value)}
-                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                            className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1 min-w-0"
                           />
                         </div>
                       </div>
@@ -800,9 +909,9 @@ export default function ProductSelection() {
                           >
                             <Checkbox
                               checked={filters.tags.includes(tag)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
                             />
-                            <span className="text-[13px] font-medium">{tag}</span>
+                            <span className="text-[13px] font-medium truncate">{tag}</span>
                           </div>
                         ))}
                       </div>
@@ -812,27 +921,34 @@ export default function ProductSelection() {
 
                 {/* Product Types Filter (conditional) */}
                 {availableFilterTypes.productTypes && (
-                  <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('productTypes', el)}>
+                  <div className="relative" ref={el => el && dropdownRefs.current.set('productTypes', el)}>
                     <button
                       onClick={() => setOpenDropdown(openDropdown === 'productTypes' ? null : 'productTypes')}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-[#6046ff] rounded-lg text-[13px] font-medium text-[#6046ff] bg-[#ede9ff] whitespace-nowrap"
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+                        filters.productTypes.length > 0
+                          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                      )}
                     >
-                      <Tag className="w-3.5 h-3.5" />
-                      Product Types {filters.productTypes.length > 0 && `(${filters.productTypes.length})`}
-                      <ChevronDown className="w-3 h-3" />
+                      <Tag className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate max-w-[100px] sm:max-w-none">
+                        Product Types {filters.productTypes.length > 0 && `(${filters.productTypes.length})`}
+                      </span>
+                      <ChevronDown className="w-3 h-3 flex-shrink-0" />
                     </button>
-                    
+
                     {openDropdown === 'productTypes' && (
                       <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
                         <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
                           <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
-                            <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                            <Search className="w-3.5 h-3.5 text-[#9e9b95] flex-shrink-0" />
                             <input
                               type="text"
                               placeholder="Search product types..."
                               value={productTypeSearch}
                               onChange={(e) => setProductTypeSearch(e.target.value)}
-                              className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                              className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1 min-w-0"
                             />
                           </div>
                         </div>
@@ -845,9 +961,9 @@ export default function ProductSelection() {
                             >
                               <Checkbox
                                 checked={filters.productTypes.includes(type)}
-                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
                               />
-                              <span className="text-[13px] font-medium">{type}</span>
+                              <span className="text-[13px] font-medium truncate">{type}</span>
                             </div>
                           ))}
                         </div>
@@ -857,28 +973,35 @@ export default function ProductSelection() {
                 )}
 
                 {/* Categories Filter (conditional) */}
-                {availableFilterTypes.categories && (
-                  <div className="relative flex-shrink-0" ref={el => el && dropdownRefs.current.set('categories', el)}>
+                {/* {availableFilterTypes.categories && (
+                  <div className="relative" ref={el => el && dropdownRefs.current.set('categories', el)}>
                     <button
                       onClick={() => setOpenDropdown(openDropdown === 'categories' ? null : 'categories')}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-[#6046ff] rounded-lg text-[13px] font-medium text-[#6046ff] bg-[#ede9ff] whitespace-nowrap"
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+                        filters.categories.length > 0
+                          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                      )}
                     >
-                      <Layers className="w-3.5 h-3.5" />
-                      Categories {filters.categories.length > 0 && `(${filters.categories.length})`}
-                      <ChevronDown className="w-3 h-3" />
+                      <Layers className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate max-w-[100px] sm:max-w-none">
+                        Categories {filters.categories.length > 0 && `(${filters.categories.length})`}
+                      </span>
+                      <ChevronDown className="w-3 h-3 flex-shrink-0" />
                     </button>
-                    
+
                     {openDropdown === 'categories' && (
                       <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[240px] max-h-96 overflow-hidden">
                         <div className="p-2 border-b border-[#e2e0db] sticky top-0 bg-white">
                           <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f4f1] rounded-lg">
-                            <Search className="w-3.5 h-3.5 text-[#9e9b95]" />
+                            <Search className="w-3.5 h-3.5 text-[#9e9b95] flex-shrink-0" />
                             <input
                               type="text"
                               placeholder="Search categories..."
                               value={categorySearch}
                               onChange={(e) => setCategorySearch(e.target.value)}
-                              className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
+                              className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1 min-w-0"
                             />
                           </div>
                         </div>
@@ -891,23 +1014,23 @@ export default function ProductSelection() {
                             >
                               <Checkbox
                                 checked={filters.categories.includes(category.id)}
-                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
                               />
-                              <span className="text-[13px] font-medium">{category.title}</span>
+                              <span className="text-[13px] font-medium truncate">{category.title}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
-                )}
+                )} */}
 
                 {/* Date Filters (conditional) */}
                 {availableFilterTypes.dates && (
                   <>
                     {dateFilters.map((dateFilter) => (
-                      <div key={dateFilter.field} className="relative flex-shrink-0">
-                        <Popover open={datePickerOpen[dateFilter.field]} onOpenChange={(open) => 
+                      <div key={dateFilter.field} className="relative">
+                        <Popover open={datePickerOpen[dateFilter.field]} onOpenChange={(open) =>
                           setDatePickerOpen(prev => ({ ...prev, [dateFilter.field]: open }))
                         }>
                           <PopoverTrigger asChild>
@@ -919,10 +1042,12 @@ export default function ProductSelection() {
                                   : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
                               )}
                             >
-                              <Calendar className="w-3.5 h-3.5" />
-                              {dateFilter.label}
+                              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate max-w-[100px] sm:max-w-none">
+                                {dateFilter.label}
+                              </span>
                               {filters[dateFilter.field] && (
-                                <span className="ml-1">
+                                <span className="ml-1 text-[11px] hidden sm:inline">
                                   ({format(filters[dateFilter.field]!, 'MM/dd/yyyy')})
                                 </span>
                               )}
@@ -947,33 +1072,87 @@ export default function ProductSelection() {
                 )}
 
                 {/* More Filters Button */}
-                <div className="relative flex-shrink-0">
-                  <Popover open={openDropdown === 'more'} onOpenChange={(open) => setOpenDropdown(open ? 'more' : null)}>
+                <div className="relative">
+                  <Popover
+                    open={openDropdown === 'more'}
+                    onOpenChange={(open) => {
+                      setOpenDropdown(open ? 'more' : null);
+                    }}
+                  >
                     <PopoverTrigger asChild>
-                      <button className="flex items-center gap-1.5 px-3 py-2 border border-[#e2e0db] rounded-lg text-[13px] font-medium text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff] transition-all whitespace-nowrap">
-                        <Plus className="w-3.5 h-3.5" />
-                        More Filters
+                      <button
+                        ref={moreFiltersButtonRef}
+                        className="flex items-center gap-1.5 px-3 py-2 border border-[#e2e0db] rounded-lg text-[13px] font-medium text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff] transition-all whitespace-nowrap"
+                      >
+                        <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate max-w-[80px] sm:max-w-none">More Filters</span>
+                        {(availableFilterTypes.productTypes || availableFilterTypes.categories || availableFilterTypes.dates) && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-[#6046ff] text-white text-[10px] rounded-full flex-shrink-0">
+                            {Object.values(availableFilterTypes).filter(Boolean).length}
+                          </span>
+                        )}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2" align="start">
+                    <PopoverContent
+                      ref={moreFiltersPopoverRef}
+                      className="w-56 p-2"
+                      align="start"
+                      sideOffset={5}
+                    >
                       <div className="space-y-1">
                         <button
-                          onClick={() => addFilterType('productTypes')}
-                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-[#ede9ff] rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            addFilterType('productTypes');
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+                            availableFilterTypes.productTypes
+                              ? "bg-[#ede9ff] text-[#6046ff]"
+                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                          )}
                         >
-                          Product Types
+                          <span>Product Types</span>
+                          {availableFilterTypes.productTypes && (
+                            <Checkbox checked className="h-4 w-4" />
+                          )}
                         </button>
-                        <button
-                          onClick={() => addFilterType('categories')}
-                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-[#ede9ff] rounded-lg transition-colors"
+                        {/* <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            addFilterType('categories');
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+                            availableFilterTypes.categories
+                              ? "bg-[#ede9ff] text-[#6046ff]"
+                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                          )}
                         >
-                          Categories
-                        </button>
+                          <span>Categories</span>
+                          {availableFilterTypes.categories && (
+                            <Checkbox checked className="h-4 w-4" />
+                          )}
+                        </button> */}
                         <button
-                          onClick={() => addFilterType('dates')}
-                          className="w-full text-left px-3 py-2 text-[13px] hover:bg-[#ede9ff] rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            addFilterType('dates');
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+                            availableFilterTypes.dates
+                              ? "bg-[#ede9ff] text-[#6046ff]"
+                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                          )}
                         >
-                          Date Filters
+                          <span>Date Filters</span>
+                          {availableFilterTypes.dates && (
+                            <Checkbox checked className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </PopoverContent>
@@ -1036,7 +1215,7 @@ export default function ProductSelection() {
                       </span>
                     </div>
                     <button
-                      onClick={selectAllFiltered}
+                      onClick={handleSelectAllFiltered}
                       className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
                     >
                       Select all filtered
@@ -1047,7 +1226,11 @@ export default function ProductSelection() {
                           {selectedProducts.length} selected
                         </span>
                         <button
-                          onClick={() => setSelectedProducts([])}
+                          onClick={() => {
+                            setSelectedProducts([]);
+                            setSelectAllOnPage(false);
+                            setSelectAllFiltered(false);
+                          }}
                           className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
                         >
                           Clear
@@ -1055,11 +1238,14 @@ export default function ProductSelection() {
                       </>
                     )}
                   </div>
-                  
+
                   {/* Pagination Controls */}
                   <div className="flex items-center gap-3">
-                    <span className="text-[12.5px] text-[#6b6862]">
+                    {/* <span className="text-[12.5px] text-[#6b6862]">
                       Page {currentPageIndex + 1} of {totalPages}
+                    </span> */}
+                    <span className="text-[12.5px] text-[#6b6862]">
+                      Page {currentPageIndex + 1}
                     </span>
                     <div className="flex items-center gap-1">
                       <button
@@ -1084,7 +1270,7 @@ export default function ProductSelection() {
                         <ChevronRight className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={handleNextPage}
+                        onClick={handleLastPage}
                         disabled={!pageInfo?.hasNextPage || loadingMore}
                         className="p-1.5 rounded border border-[#e2e0db] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5f4f1]"
                       >
@@ -1115,7 +1301,7 @@ export default function ProductSelection() {
                       const isSelected = selectedProducts.includes(product.id);
                       const variant = product.variants.edges[0]?.node;
                       const sku = variant?.sku || 'No SKU';
-                      const imageUrl = product.featuredMedia?.preview.image.url || 
+                      const imageUrl = product.featuredMedia?.preview?.image?.url ||
                         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop';
                       const price = formatPrice(
                         product.priceRangeV2.minVariantPrice.amount,
@@ -1133,8 +1319,8 @@ export default function ProductSelection() {
                           )}
                         >
                           <div>
-                            <Checkbox 
-                              checked={isSelected} 
+                            <Checkbox
+                              checked={isSelected}
                               className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
                             />
                           </div>
@@ -1183,7 +1369,7 @@ export default function ProductSelection() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
                     {products.map((product) => {
                       const isSelected = selectedProducts.includes(product.id);
-                      const imageUrl = product.featuredMedia?.preview.image.url || 
+                      const imageUrl = product.featuredMedia?.preview.image.url ||
                         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop';
                       const price = formatPrice(
                         product.priceRangeV2.minVariantPrice.amount,
@@ -1202,8 +1388,8 @@ export default function ProductSelection() {
                           )}
                         >
                           <div className="flex items-start gap-3">
-                            <Checkbox 
-                              checked={isSelected} 
+                            <Checkbox
+                              checked={isSelected}
                               className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
                             />
                             <img
@@ -1268,7 +1454,11 @@ export default function ProductSelection() {
           <ArrowRight className="w-4 h-4" />
         </button>
         <button
-          onClick={() => setSelectedProducts([])}
+          onClick={() => {
+            setSelectedProducts([]);
+            setSelectAllOnPage(false);
+            setSelectAllFiltered(false);
+          }}
           className="text-sm text-white/50 hover:text-white transition-colors"
         >
           Clear
