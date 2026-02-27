@@ -1369,7 +1369,7 @@ export default function ProductSelection() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
                     {products.map((product) => {
                       const isSelected = selectedProducts.includes(product.id);
-                      const imageUrl = product.featuredMedia?.preview.image.url ||
+                      const imageUrl = product.featuredMedia?.preview?.image?.url ||
                         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop';
                       const price = formatPrice(
                         product.priceRangeV2.minVariantPrice.amount,
