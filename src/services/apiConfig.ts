@@ -9,6 +9,7 @@ const ApiConfig = {
   getProductType:`${BASE_URL}/api/shop/product-types`,
   getTags:`${BASE_URL}/api/shop/tags`,
   getCategories:`${BASE_URL}/api/shop/categories`,
+  customProduct: `${BASE_URL}/api/optimization/customproducts`,
   storeProduct:`${BASE_URL}/api/optimization/store`,
   getStoredProduct:`${BASE_URL}/api/optimization/products?serviceName=title`,
   getStoredDesProduct:`${BASE_URL}/api/optimization/products?serviceName=description`,

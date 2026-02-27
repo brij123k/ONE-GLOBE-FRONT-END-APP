@@ -90,6 +90,10 @@ interface FilterState {
   createdAfter?: Date;
   publishedAfter?: Date;
   updatedAfter?: Date;
+  priceMin?: number;
+  priceMax?: number;
+  stockMin?: number;
+  stockMax?: number;
 }
 
 interface PageInfo {
@@ -101,7 +105,7 @@ interface PageInfo {
 
 interface FilterChip {
   id: string;
-  type: 'vendor' | 'collection' | 'tag' | 'productType' | 'category' | 'date';
+  type: 'vendor' | 'collection' | 'tag' | 'productType' | 'category' | 'date' | 'price' | 'stock';
   label: string;
   value: any;
   field: keyof FilterState;
@@ -160,18 +164,26 @@ export default function ProductSelection() {
   const [productTypes, setProductTypes] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [categories, setCategories] = useState<{ id: string, title: string }[]>([]);
-
+  const [showSelectionDropdown, setShowSelectionDropdown] = useState(false);
+  const [customNumberRange, setCustomNumberRange] = useState<[number, number]>([1, 100]);
+  const [isProcessingSelection, setIsProcessingSelection] = useState(false);
+  const selectionDropdownRef = useRef<HTMLDivElement>(null);
   // Loading states
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalFilteredCount, setTotalFilteredCount] = useState<number>(0);
-
+  const [selectionType, setSelectionType] = useState<'page' | 'filtered' | 'all' | 'custom' | null>(null);
   // Pagination
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
   const [cursors, setCursors] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-
+  const [totalPages, setTotalPages] = useState(0)
+  const [allSelection, setAllSelection] = useState(false)
   // Filter state
+  const [priceMin, setPriceMin] = useState<string>('');
+  const [priceMax, setPriceMax] = useState<string>('');
+  const [stockMin, setStockMin] = useState<string>('');
+  const [stockMax, setStockMax] = useState<string>('');
   const [filters, setFilters] = useState<FilterState>({
     status: "all",
     collections: [],
@@ -191,10 +203,14 @@ export default function ProductSelection() {
     productTypes: boolean;
     categories: boolean;
     dates: boolean;
+    price: boolean;
+    stock: boolean;
   }>({
     productTypes: false,
     categories: false,
     dates: false,
+    price: false,
+    stock: false,
   });
 
   // Search states for dropdowns
@@ -244,6 +260,9 @@ export default function ProductSelection() {
         moreFiltersButtonRef.current?.contains(event.target as Node)) {
         isOutsideAll = false;
       }
+      if (selectionDropdownRef.current && !selectionDropdownRef.current.contains(event.target as Node)) {
+        setShowSelectionDropdown(false);
+      }
 
       if (isOutsideAll) {
         setOpenDropdown(null);
@@ -253,6 +272,7 @@ export default function ProductSelection() {
         setProductTypeSearch("");
         setCategorySearch("");
       }
+
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -299,13 +319,17 @@ export default function ProductSelection() {
       if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
       if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
       if (filters.searchQuery) params[filters.searchField] = filters.searchQuery;
-
+if (filters.priceMin !== undefined) params.priceMin = filters.priceMin;
+if (filters.priceMax !== undefined) params.priceMax = filters.priceMax;
+if (filters.stockMin !== undefined) params.stockMin = filters.stockMin;
+if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
       console.log('Fetching products with params:', params);
       const response = await getApi(ApiConfig.getProducts, params);
 
       setProducts(response.products.map((p: any) => p.node));
       setPageInfo(response.pageInfo);
-
+      setTotalPages(response.totalPages)
+      setTotalFilteredCount(response.totalCount || 0);
       // You might want to get total count from response if available
       // setTotalFilteredCount(response.totalCount || response.products.length);
 
@@ -345,7 +369,89 @@ export default function ProductSelection() {
 
     return () => clearTimeout(timer);
   }, [filters.searchQuery, filters.searchField, filters.status, fetchProducts, loading]);
+  // Add this with your other API functions
+  const applyPriceFilter = () => {
+    const min = priceMin ? parseFloat(priceMin) : undefined;
+    const max = priceMax ? parseFloat(priceMax) : undefined;
 
+    if (min !== undefined || max !== undefined) {
+      setFilters(prev => ({
+        ...prev,
+        priceMin: min,
+        priceMax: max,
+      }));
+      setAvailableFilterTypes(prev => ({ ...prev, price: false }));
+      setPriceMin('');
+      setPriceMax('');
+      setTimeout(() => fetchProducts(), 0);
+    }
+  };
+
+  const applyStockFilter = () => {
+    const min = stockMin ? parseInt(stockMin) : undefined;
+    const max = stockMax ? parseInt(stockMax) : undefined;
+
+    if (min !== undefined || max !== undefined) {
+      setFilters(prev => ({
+        ...prev,
+        stockMin: min,
+        stockMax: max,
+      }));
+      setAvailableFilterTypes(prev => ({ ...prev, stock: false }));
+      setStockMin('');
+      setStockMax('');
+      setTimeout(() => fetchProducts(), 0);
+    }
+  };
+  const handleCustomProductSelection = (type: 'filtered' | 'all' | 'custom') => {
+    try {
+
+      setIsProcessingSelection(true);
+
+      let productIds: string[] = [];
+
+      if (type === 'filtered') {
+        // For filtered products, we don't have all IDs, so we just show a message
+        // The actual selection will happen on the backend when continuing
+        setSelectionType('filtered');
+        // Show visual feedback that all filtered products are selected
+        setSelectedProducts([]); // Clear individual selections
+        setSelectAllFiltered(true);
+        setSelectAllOnPage(false);
+      }
+      else if (type === 'all') {
+        // Select all products in the store
+        setSelectionType('all');
+        setSelectedProducts([]); // Clear individual selections
+        setSelectAllFiltered(true);
+        setSelectAllOnPage(false);
+      }
+      else if (type === 'custom') {
+        // For custom range, we select from the current page only
+        // (since we don't have all products loaded)
+        const [start, end] = customNumberRange;
+        const validStart = Math.max(1, start);
+        const validEnd = Math.min(totalFilteredCount, end);
+
+        if (validStart <= validEnd) {
+          // Select from current page products within range
+          // Note: This only selects from current page, not all pages
+          const pageProductIds = products.map(p => p.id);
+          const selectedFromPage = pageProductIds.slice(validStart - 1, validEnd);
+          setSelectedProducts(selectedFromPage);
+          setSelectionType('custom');
+          setSelectAllFiltered(false);
+          setSelectAllOnPage(selectedFromPage.length === products.length);
+        }
+      }
+
+      setShowSelectionDropdown(false);
+    } catch (error) {
+      console.error('Error selecting products:', error);
+    } finally {
+      setIsProcessingSelection(false);
+    }
+  };
   // Update active filter chips when filters change
   useEffect(() => {
     const chips: FilterChip[] = [];
@@ -419,6 +525,59 @@ export default function ProductSelection() {
       value: 'updatedAfter',
       field: 'updatedAfter'
     });
+    // Add price range chips
+    if (filters.priceMin !== undefined && filters.priceMax !== undefined) {
+      chips.push({
+        id: 'price-range',
+        type: 'price',
+        label: `Price: $${filters.priceMin} - $${filters.priceMax}`,
+        value: { min: filters.priceMin, max: filters.priceMax },
+        field: 'priceMin' // Using priceMin as reference, we'll handle both in remove
+      });
+    } else if (filters.priceMin !== undefined) {
+      chips.push({
+        id: 'price-min',
+        type: 'price',
+        label: `Price: Min $${filters.priceMin}`,
+        value: filters.priceMin,
+        field: 'priceMin'
+      });
+    } else if (filters.priceMax !== undefined) {
+      chips.push({
+        id: 'price-max',
+        type: 'price',
+        label: `Price: Max $${filters.priceMax}`,
+        value: filters.priceMax,
+        field: 'priceMax'
+      });
+    }
+
+    // Add stock range chips
+    if (filters.stockMin !== undefined && filters.stockMax !== undefined) {
+      chips.push({
+        id: 'stock-range',
+        type: 'stock',
+        label: `Stock: ${filters.stockMin} - ${filters.stockMax}`,
+        value: { min: filters.stockMin, max: filters.stockMax },
+        field: 'stockMin'
+      });
+    } else if (filters.stockMin !== undefined) {
+      chips.push({
+        id: 'stock-min',
+        type: 'stock',
+        label: `Stock: Min ${filters.stockMin}`,
+        value: filters.stockMin,
+        field: 'stockMin'
+      });
+    } else if (filters.stockMax !== undefined) {
+      chips.push({
+        id: 'stock-max',
+        type: 'stock',
+        label: `Stock: Max ${filters.stockMax}`,
+        value: filters.stockMax,
+        field: 'stockMax'
+      });
+    }
 
     setActiveFilterChips(chips);
   }, [filters, collections, categories]);
@@ -433,7 +592,7 @@ export default function ProductSelection() {
       // Fetch filter options in parallel
       const [collectionsRes, vendorsRes, typesRes, tagsRes,
         //  categoriesRes
-        ] = await Promise.all([
+      ] = await Promise.all([
         getApi(ApiConfig.getCollections),
         getApi(ApiConfig.getVendors),
         getApi(ApiConfig.getProductType),
@@ -507,6 +666,12 @@ export default function ProductSelection() {
       } else if (chip.field === 'createdAfter' || chip.field === 'publishedAfter' ||
         chip.field === 'updatedAfter') {
         newFilters[chip.field] = undefined;
+      } else if (chip.field === 'priceMin' || chip.field === 'priceMax') {
+        newFilters.priceMin = undefined;
+        newFilters.priceMax = undefined;
+      } else if (chip.field === 'stockMin' || chip.field === 'stockMax') {
+        newFilters.stockMin = undefined;
+        newFilters.stockMax = undefined;
       }
 
       return newFilters;
@@ -528,16 +693,22 @@ export default function ProductSelection() {
       productTypes: [],
       tags: [],
       categories: [],
+      priceMin: undefined,
+      priceMax: undefined,
+      stockMin: undefined,
+      stockMax: undefined,
     });
     setAvailableFilterTypes({
       productTypes: false,
       categories: false,
       dates: false,
+      price: false,
+      stock: false
     });
     fetchProducts();
   };
 
-  const addFilterType = (type: 'productTypes' | 'categories' | 'dates') => {
+  const addFilterType = (type: 'productTypes' | 'categories' | 'dates' | 'price' | 'stock') => {
     setAvailableFilterTypes(prev => ({
       ...prev,
       [type]: !prev[type]
@@ -561,7 +732,7 @@ export default function ProductSelection() {
 
   const toggleAllOnPage = () => {
     const pageProductIds = products.map(p => p.id);
-
+    setAllSelection(false)
     if (selectAllOnPage) {
       setSelectedProducts(prev =>
         prev.filter(id => !pageProductIds.includes(id))
@@ -597,7 +768,10 @@ export default function ProductSelection() {
       if (filters.publishedAfter) params.publishedAfter = filters.publishedAfter.toISOString();
       if (filters.updatedAfter) params.updatedAfter = filters.updatedAfter.toISOString();
       if (filters.searchQuery) params[filters.searchField] = filters.searchQuery;
-
+      if (filters.priceMin !== undefined) params.priceMin = filters.priceMin;
+if (filters.priceMax !== undefined) params.priceMax = filters.priceMax;
+if (filters.stockMin !== undefined) params.stockMin = filters.stockMin;
+if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
       // You would need a separate endpoint to get all IDs
       // For now, we'll just select all on current page
       const allIds = products.map(p => p.id);
@@ -610,17 +784,59 @@ export default function ProductSelection() {
   };
 
   const handleContinue = async () => {
-    if (selectedProducts.length > 0) {
-      try {
-        // Store selected products with service name
-        await postApi(ApiConfig.storeProduct, {
-          serviceName: service,
-          productIds: selectedProducts
-        });
-        navigate(`/${service}-optimization?products=${selectedProducts.join(",")}`);
-      } catch (error) {
-        console.error('Error storing products:', error);
+    try {
+      setIsProcessingSelection(true);
+
+      let payload: any = {
+        serviceName: service,
+      };
+
+      // If using filtered or all selection
+      if (selectAllFiltered) {
+        if (selectionType === 'filtered') {
+          // Send filters for backend to apply
+          payload.filters = {
+            status: filters.status !== 'all' ? filters.status : undefined,
+            collections: filters.collections.length > 0 ? filters.collections : undefined,
+            vendors: filters.vendors.length > 0 ? filters.vendors : undefined,
+            productTypes: filters.productTypes.length > 0 ? filters.productTypes : undefined,
+            tags: filters.tags.length > 0 ? filters.tags : undefined,
+            categories: filters.categories.length > 0 ? filters.categories : undefined,
+            createdAfter: filters.createdAfter,
+            publishedAfter: filters.publishedAfter,
+            updatedAfter: filters.updatedAfter,
+            searchField: filters.searchQuery ? filters.searchField : undefined,
+            searchQuery: filters.searchQuery || undefined,
+
+            priceMin: filters.priceMin,
+            priceMax: filters.priceMax,
+            stockMin: filters.stockMin,
+            stockMax: filters.stockMax,
+          };
+          // Remove undefined values
+          Object.keys(payload.filters).forEach(key =>
+            payload.filters[key] === undefined && delete payload.filters[key]
+          );
+        } else if (selectionType === 'all') {
+          payload.filters = {}; // Empty filters for all products
+        }
       }
+      // If using custom range selection
+      else if (selectionType === 'custom') {
+        payload.customNumbers = customNumberRange;
+        payload.productIds = selectedProducts; // Send specific IDs
+      }
+      else {
+        payload.productIds = selectedProducts;
+      }
+
+      await postApi(ApiConfig.storeProduct, payload);
+      navigate(`/${service}-optimization`);
+
+    } catch (error) {
+      console.error('Error storing products:', error);
+    } finally {
+      setIsProcessingSelection(false);
     }
   };
 
@@ -669,9 +885,6 @@ export default function ProductSelection() {
       c.title.toLowerCase().includes(categorySearch.toLowerCase())
     );
   }, [categories, categorySearch]);
-
-  const totalPages = Math.ceil((products.length || 1) / ITEMS_PER_PAGE);
-
   return (
     <AppLayout>
       <div className="min-h-screen font-['DM_Sans'] bg-[#f5f4f1]">
@@ -686,11 +899,20 @@ export default function ProductSelection() {
             </div>
             <Button
               onClick={handleContinue}
-              disabled={selectedProducts.length === 0}
+              disabled={selectedProducts.length === 0 || isProcessingSelection}
               className="bg-[#6046ff] hover:bg-[#4f38d4] text-white rounded-lg px-5 py-2.5 text-sm font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
             >
-              Continue to Optimization
-              <ArrowRight className="w-4 h-4" />
+              {isProcessingSelection ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Continue to Optimization
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
           </div>
 
@@ -1086,20 +1308,22 @@ export default function ProductSelection() {
                       >
                         <Plus className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="truncate max-w-[80px] sm:max-w-none">More Filters</span>
-                        {(availableFilterTypes.productTypes || availableFilterTypes.categories || availableFilterTypes.dates) && (
-                          <span className="ml-1 px-1.5 py-0.5 bg-[#6046ff] text-white text-[10px] rounded-full flex-shrink-0">
-                            {Object.values(availableFilterTypes).filter(Boolean).length}
-                          </span>
-                        )}
+                        {(availableFilterTypes.productTypes || availableFilterTypes.categories ||
+                          availableFilterTypes.dates || availableFilterTypes.price || availableFilterTypes.stock) && (
+                            <span className="ml-1 px-1.5 py-0.5 bg-[#6046ff] text-white text-[10px] rounded-full flex-shrink-0">
+                              {Object.values(availableFilterTypes).filter(Boolean).length}
+                            </span>
+                          )}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
                       ref={moreFiltersPopoverRef}
-                      className="w-56 p-2"
+                      className="w-64 p-2"
                       align="start"
                       sideOffset={5}
                     >
                       <div className="space-y-1">
+                        {/* Product Types */}
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -1118,24 +1342,111 @@ export default function ProductSelection() {
                             <Checkbox checked className="h-4 w-4" />
                           )}
                         </button>
-                        {/* <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            addFilterType('categories');
-                          }}
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
-                            availableFilterTypes.categories
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+
+                        {/* Price Range Filter */}
+                        <div className="border-t border-[#e2e0db] my-1"></div>
+                        <div className="px-3 py-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[13px] font-medium">Price Range</span>
+                            {availableFilterTypes.price && (
+                              <Checkbox checked className="h-4 w-4" />
+                            )}
+                          </div>
+                          {availableFilterTypes.price ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="Min $"
+                                  value={priceMin}
+                                  onChange={(e) => setPriceMin(e.target.value)}
+                                  className="h-8 text-[12px]"
+                                />
+                                <span className="text-[#9e9b95]">-</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="Max $"
+                                  value={priceMax}
+                                  onChange={(e) => setPriceMax(e.target.value)}
+                                  className="h-8 text-[12px]"
+                                />
+                              </div>
+                              <Button
+                                onClick={applyPriceFilter}
+                                size="sm"
+                                className="w-full bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+                                disabled={!priceMin && !priceMax}
+                              >
+                                Apply Price Filter
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addFilterType('price')}
+                              className="w-full text-left text-[12px] text-[#6b6862] hover:text-[#6046ff] py-1"
+                            >
+                              + Add price range
+                            </button>
                           )}
-                        >
-                          <span>Categories</span>
-                          {availableFilterTypes.categories && (
-                            <Checkbox checked className="h-4 w-4" />
+                        </div>
+
+                        {/* Stock Range Filter */}
+                        <div className="border-t border-[#e2e0db] my-1"></div>
+                        <div className="px-3 py-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[13px] font-medium">Stock Range</span>
+                            {availableFilterTypes.stock && (
+                              <Checkbox checked className="h-4 w-4" />
+                            )}
+                          </div>
+                          {availableFilterTypes.stock ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  placeholder="Min"
+                                  value={stockMin}
+                                  onChange={(e) => setStockMin(e.target.value)}
+                                  className="h-8 text-[12px]"
+                                />
+                                <span className="text-[#9e9b95]">-</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  placeholder="Max"
+                                  value={stockMax}
+                                  onChange={(e) => setStockMax(e.target.value)}
+                                  className="h-8 text-[12px]"
+                                />
+                              </div>
+                              <Button
+                                onClick={applyStockFilter}
+                                size="sm"
+                                className="w-full bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+                                disabled={!stockMin && !stockMax}
+                              >
+                                Apply Stock Filter
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addFilterType('stock')}
+                              className="w-full text-left text-[12px] text-[#6b6862] hover:text-[#6046ff] py-1"
+                            >
+                              + Add stock range
+                            </button>
                           )}
-                        </button> */}
+                        </div>
+
+                        {/* Date Filters */}
+                        <div className="border-t border-[#e2e0db] my-1"></div>
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -1202,6 +1513,7 @@ export default function ProductSelection() {
               {/* Product Table/Grid */}
               <div className="bg-white border border-[#e2e0db] rounded-xl overflow-hidden">
                 {/* Table Meta with Pagination */}
+                {/* Table Meta with Pagination */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-[#e2e0db]">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -1214,22 +1526,120 @@ export default function ProductSelection() {
                         Select all on page ({products.length})
                       </span>
                     </div>
-                    <button
-                      onClick={handleSelectAllFiltered}
-                      className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
-                    >
-                      Select all filtered
-                    </button>
+
+                    {/* Selection Dropdown */}
+                    <div className="relative" ref={selectionDropdownRef}>
+                      <button
+                        onClick={() => setShowSelectionDropdown(!showSelectionDropdown)}
+                        disabled={isProcessingSelection}
+                        className="flex items-center gap-1.5 text-[12.5px] text-[#6046ff] font-medium hover:underline disabled:opacity-50"
+                      >
+                        {isProcessingSelection ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            {selectAllFiltered ? 'All products selected' : 'Select options'}
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </button>
+
+                      {showSelectionDropdown && !isProcessingSelection && !selectAllFiltered && (
+                        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[280px] overflow-hidden">
+                          <div className="p-2">
+                            {/* Filtered option - only show if filters are applied */}
+                            {activeFilterChips.length > 0 ? (
+                              <button
+                                onClick={() => {
+                                  setAllSelection(true)
+                                  handleCustomProductSelection('filtered')
+                                }
+                                }
+                                className="w-full text-left px-3 py-2.5 text-[13px] rounded-lg hover:bg-[#ede9ff] hover:text-[#6046ff] transition-colors"
+                              >
+                                <div className="font-medium">Select all filtered products</div>
+                                <div className="text-[11px] text-[#9e9b95] mt-0.5">
+                                  Based on your current filters ({totalFilteredCount.toLocaleString()} products)
+                                </div>
+                              </button>
+                            ) : (<button
+                              onClick={() => {
+                                setAllSelection(true)
+                                handleCustomProductSelection('all')
+                              }
+                              }
+                              className="w-full text-left px-3 py-2.5 text-[13px] rounded-lg hover:bg-[#ede9ff] hover:text-[#6046ff] transition-colors"
+                            >
+                              <div className="font-medium">Select all store products</div>
+                              <div className="text-[11px] text-[#9e9b95] mt-0.5">
+                                All products in your store ({totalFilteredCount.toLocaleString()} total)
+                              </div>
+                            </button>)
+                            }
+
+                            {/* All store products option */}
+
+
+                            {/* Custom range option */}
+                            {/* <div className="border-t border-[#e2e0db] my-2"></div> */}
+                            {/* <div className="px-3 py-2">
+          <div className="font-medium text-[13px] mb-2">Custom range (from current page)</div>
+          <div className="flex items-center gap-2 mb-3">
+            <Input
+              type="number"
+              min="1"
+              max={products.length}
+              value={customNumberRange[0]}
+              onChange={(e) => setCustomNumberRange([parseInt(e.target.value) || 1, customNumberRange[1]])}
+              className="w-20 h-8 text-[12px]"
+              placeholder="From"
+            />
+            <span className="text-[#9e9b95]">to</span>
+            <Input
+              type="number"
+              min={customNumberRange[0]}
+              max={products.length}
+              value={customNumberRange[1]}
+              onChange={(e) => setCustomNumberRange([customNumberRange[0], parseInt(e.target.value) || customNumberRange[0]])}
+              className="w-20 h-8 text-[12px]"
+              placeholder="To"
+            />
+          </div>
+          <Button
+            onClick={() => handleCustomProductSelection('custom')}
+            size="sm"
+            className="w-full bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+          >
+            Select products {customNumberRange[0]} to {customNumberRange[1]}
+          </Button>
+        </div> */}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {selectedProducts.length > 0 && (
                       <>
                         <span className="text-[12.5px] text-[#6b6862]">
-                          {selectedProducts.length} selected
+                          {allSelection ? (
+                            <>
+                              {totalFilteredCount.toLocaleString()} selected
+                            </>
+                          ) : (
+                            <>
+                              {selectedProducts.length} selected
+                            </>
+                          )}
                         </span>
                         <button
                           onClick={() => {
                             setSelectedProducts([]);
                             setSelectAllOnPage(false);
                             setSelectAllFiltered(false);
+                            setAllSelection(false)
                           }}
                           className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
                         >
@@ -1239,14 +1649,12 @@ export default function ProductSelection() {
                     )}
                   </div>
 
-                  {/* Pagination Controls */}
+                  {/* Pagination Controls (keep existing) */}
                   <div className="flex items-center gap-3">
-                    {/* <span className="text-[12.5px] text-[#6b6862]">
-                      Page {currentPageIndex + 1} of {totalPages}
-                    </span> */}
                     <span className="text-[12.5px] text-[#6b6862]">
-                      Page {currentPageIndex + 1}
+                      Page {currentPageIndex + 1} of {totalPages}
                     </span>
+
                     <div className="flex items-center gap-1">
                       <button
                         onClick={handleFirstPage}
@@ -1279,16 +1687,16 @@ export default function ProductSelection() {
                     </div>
                     {loadingMore && <Loader2 className="w-4 h-4 animate-spin text-[#6046ff]" />}
                   </div>
+
                 </div>
 
                 {/* Table Header (List View) */}
                 {viewMode === "list" && (
-                  <div className="grid grid-cols-[40px_56px_1fr_100px_110px_80px_70px] items-center px-5 py-2.5 bg-[#f5f4f1] border-b border-[#e2e0db] text-[12px] font-semibold text-[#9e9b95] uppercase tracking-wider">
+                  <div className="grid grid-cols-[40px_56px_1fr_100px_110px] items-center px-5 py-2.5 bg-[#f5f4f1] border-b border-[#e2e0db] text-[12px] font-semibold text-[#9e9b95] uppercase tracking-wider">
                     <div></div>
                     <div>Image</div>
                     <div>Product</div>
-                    <div>Price</div>
-                    <div>Collection</div>
+                    {/* <div>Price</div> */}
                     <div>Stock</div>
                     <div>Status</div>
                   </div>
@@ -1314,7 +1722,7 @@ export default function ProductSelection() {
                           key={product.id}
                           onClick={() => toggleProduct(product.id)}
                           className={cn(
-                            "grid grid-cols-[40px_56px_1fr_100px_110px_80px_70px] items-center px-5 py-3 cursor-pointer transition-all hover:bg-[#f5f4f1]",
+                            "grid grid-cols-[40px_56px_1fr_100px_110px] items-center px-5 py-3 cursor-pointer transition-all hover:bg-[#f5f4f1]",
                             isSelected && "bg-[#ede9ff] hover:bg-[#ede9ff]"
                           )}
                         >
@@ -1344,12 +1752,9 @@ export default function ProductSelection() {
                               </span>
                             )}
                           </div>
-                          <div className="font-mono font-semibold text-[13.5px]">
+                          {/* <div className="font-mono font-semibold text-[13.5px]">
                             {price}
-                          </div>
-                          <div className="text-[13px] text-[#6b6862]">
-                            {collection?.title || '-'}
-                          </div>
+                          </div> */}
                           <div className="text-[13px] text-[#6b6862]">
                             {product.totalInventory} in stock
                           </div>
@@ -1448,16 +1853,27 @@ export default function ProductSelection() {
         </div>
         <button
           onClick={handleContinue}
-          className="flex items-center gap-1.5 bg-[#6046ff] hover:bg-[#4f38d4] rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+          disabled={isProcessingSelection}
+          className="flex items-center gap-1.5 bg-[#6046ff] hover:bg-[#4f38d4] rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
         >
-          Continue to Optimization
-          <ArrowRight className="w-4 h-4" />
+          {isProcessingSelection ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              Continue to Optimization
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
         <button
           onClick={() => {
             setSelectedProducts([]);
             setSelectAllOnPage(false);
             setSelectAllFiltered(false);
+            setAllSelection(false)
           }}
           className="text-sm text-white/50 hover:text-white transition-colors"
         >
