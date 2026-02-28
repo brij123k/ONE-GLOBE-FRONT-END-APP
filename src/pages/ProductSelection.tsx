@@ -166,7 +166,10 @@ export default function ProductSelection() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectAllOnPage, setSelectAllOnPage] = useState(false);
   const [selectAllFiltered, setSelectAllFiltered] = useState(false);
-
+  const [priceRangeMin, setPriceRangeMin] = useState<string>('');
+const [priceRangeMax, setPriceRangeMax] = useState<string>('');
+const [stockRangeMin, setStockRangeMin] = useState<string>('');
+const [stockRangeMax, setStockRangeMax] = useState<string>('');
   // Data states
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -1258,6 +1261,206 @@ if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
                   </div>
                 )} */}
 
+                {/* Price Range Filter (standalone) */}
+{availableFilterTypes.price && (
+  <div className="relative" ref={el => el && dropdownRefs.current.set('price', el)}>
+    <button
+      onClick={() => setOpenDropdown(openDropdown === 'price' ? null : 'price')}
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+        filters.priceMin !== undefined || filters.priceMax !== undefined
+          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+      )}
+    >
+      <Tag className="w-3.5 h-3.5 flex-shrink-0" />
+      <span className="truncate max-w-[100px] sm:max-w-none">
+        Price Range
+        {(filters.priceMin !== undefined || filters.priceMax !== undefined) && (
+          <span className="ml-1">
+            ({filters.priceMin !== undefined ? `$${filters.priceMin}` : 'Any'} - {filters.priceMax !== undefined ? `$${filters.priceMax}` : 'Any'})
+          </span>
+        )}
+      </span>
+      <ChevronDown className="w-3 h-3 flex-shrink-0" />
+    </button>
+
+    {openDropdown === 'price' && (
+      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[280px] overflow-hidden p-3">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Min $"
+              value={priceRangeMin}
+              onChange={(e) => setPriceRangeMin(e.target.value)}
+              className="h-8 text-[12px]"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="text-[#9e9b95]">-</span>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Max $"
+              value={priceRangeMax}
+              onChange={(e) => setPriceRangeMax(e.target.value)}
+              className="h-8 text-[12px]"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                const min = priceRangeMin ? parseFloat(priceRangeMin) : undefined;
+                const max = priceRangeMax ? parseFloat(priceRangeMax) : undefined;
+                if (min !== undefined || max !== undefined) {
+                  setFilters(prev => ({
+                    ...prev,
+                    priceMin: min,
+                    priceMax: max,
+                  }));
+                  setOpenDropdown(null);
+                  setPriceRangeMin('');
+                  setPriceRangeMax('');
+                  setTimeout(() => fetchProducts(), 0);
+                }
+              }}
+              size="sm"
+              className="flex-1 bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+              disabled={!priceRangeMin && !priceRangeMax}
+            >
+              Apply
+            </Button>
+            {(filters.priceMin !== undefined || filters.priceMax !== undefined) && (
+              <Button
+                onClick={() => {
+                  setFilters(prev => ({
+                    ...prev,
+                    priceMin: undefined,
+                    priceMax: undefined,
+                  }));
+                  setOpenDropdown(null);
+                  setPriceRangeMin('');
+                  setPriceRangeMax('');
+                  setTimeout(() => fetchProducts(), 0);
+                }}
+                size="sm"
+                variant="outline"
+                className="flex-1 text-[12px] h-8"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+{/* Stock Range Filter (standalone) */}
+{availableFilterTypes.stock && (
+  <div className="relative" ref={el => el && dropdownRefs.current.set('stock', el)}>
+    <button
+      onClick={() => setOpenDropdown(openDropdown === 'stock' ? null : 'stock')}
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
+        filters.stockMin !== undefined || filters.stockMax !== undefined
+          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
+          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+      )}
+    >
+      <Package className="w-3.5 h-3.5 flex-shrink-0" />
+      <span className="truncate max-w-[100px] sm:max-w-none">
+        Stock Range
+        {(filters.stockMin !== undefined || filters.stockMax !== undefined) && (
+          <span className="ml-1">
+            ({filters.stockMin !== undefined ? filters.stockMin : 'Any'} - {filters.stockMax !== undefined ? filters.stockMax : 'Any'})
+          </span>
+        )}
+      </span>
+      <ChevronDown className="w-3 h-3 flex-shrink-0" />
+    </button>
+
+    {openDropdown === 'stock' && (
+      <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#e2e0db] rounded-xl shadow-lg min-w-[280px] overflow-hidden p-3">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Min"
+              value={stockRangeMin}
+              onChange={(e) => setStockRangeMin(e.target.value)}
+              className="h-8 text-[12px]"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="text-[#9e9b95]">-</span>
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="Max"
+              value={stockRangeMax}
+              onChange={(e) => setStockRangeMax(e.target.value)}
+              className="h-8 text-[12px]"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                const min = stockRangeMin ? parseInt(stockRangeMin) : undefined;
+                const max = stockRangeMax ? parseInt(stockRangeMax) : undefined;
+                if (min !== undefined || max !== undefined) {
+                  setFilters(prev => ({
+                    ...prev,
+                    stockMin: min,
+                    stockMax: max,
+                  }));
+                  setOpenDropdown(null);
+                  setStockRangeMin('');
+                  setStockRangeMax('');
+                  setTimeout(() => fetchProducts(), 0);
+                }
+              }}
+              size="sm"
+              className="flex-1 bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+              disabled={!stockRangeMin && !stockRangeMax}
+            >
+              Apply
+            </Button>
+            {(filters.stockMin !== undefined || filters.stockMax !== undefined) && (
+              <Button
+                onClick={() => {
+                  setFilters(prev => ({
+                    ...prev,
+                    stockMin: undefined,
+                    stockMax: undefined,
+                  }));
+                  setOpenDropdown(null);
+                  setStockRangeMin('');
+                  setStockRangeMax('');
+                  setTimeout(() => fetchProducts(), 0);
+                }}
+                size="sm"
+                variant="outline"
+                className="flex-1 text-[12px] h-8"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
                 {/* Date Filters (conditional) */}
                 {availableFilterTypes.dates && (
                   <>
@@ -1328,156 +1531,100 @@ if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
-                      ref={moreFiltersPopoverRef}
-                      className="w-64 p-2"
-                      align="start"
-                      sideOffset={5}
-                    >
-                      <div className="space-y-1">
-                        {/* Product Types */}
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            addFilterType('productTypes');
-                          }}
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
-                            availableFilterTypes.productTypes
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
-                          )}
-                        >
-                          <span>Product Types</span>
-                          {availableFilterTypes.productTypes && (
-                            <Checkbox checked className="h-4 w-4" />
-                          )}
-                        </button>
+  ref={moreFiltersPopoverRef}
+  className="w-64 p-2"
+  align="start"
+  sideOffset={5}
+>
+  <div className="space-y-1">
+    {/* Product Types */}
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addFilterType('productTypes');
+        setOpenDropdown(null);
+      }}
+      className={cn(
+        "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+        availableFilterTypes.productTypes
+          ? "bg-[#ede9ff] text-[#6046ff]"
+          : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+      )}
+    >
+      <span>Product Types</span>
+      {availableFilterTypes.productTypes && (
+        <Checkbox checked className="h-4 w-4" />
+      )}
+    </button>
 
-                        {/* Price Range Filter */}
-                        <div className="border-t border-[#e2e0db] my-1"></div>
-                        <div className="px-3 py-2">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[13px] font-medium">Price Range</span>
-                            {availableFilterTypes.price && (
-                              <Checkbox checked className="h-4 w-4" />
-                            )}
-                          </div>
-                          {availableFilterTypes.price ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="Min $"
-                                  value={priceMin}
-                                  onChange={(e) => setPriceMin(e.target.value)}
-                                  className="h-8 text-[12px]"
-                                />
-                                <span className="text-[#9e9b95]">-</span>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="Max $"
-                                  value={priceMax}
-                                  onChange={(e) => setPriceMax(e.target.value)}
-                                  className="h-8 text-[12px]"
-                                />
-                              </div>
-                              <Button
-                                onClick={applyPriceFilter}
-                                size="sm"
-                                className="w-full bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
-                                disabled={!priceMin && !priceMax}
-                              >
-                                Apply Price Filter
-                              </Button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => addFilterType('price')}
-                              className="w-full text-left text-[12px] text-[#6b6862] hover:text-[#6046ff] py-1"
-                            >
-                              + Add price range
-                            </button>
-                          )}
-                        </div>
+    {/* Price Range Toggle */}
+    <div className="border-t border-[#e2e0db] my-1"></div>
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addFilterType('price');
+        setOpenDropdown(null);
+      }}
+      className={cn(
+        "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+        availableFilterTypes.price
+          ? "bg-[#ede9ff] text-[#6046ff]"
+          : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+      )}
+    >
+      <span>Price Range</span>
+      {availableFilterTypes.price && (
+        <Checkbox checked className="h-4 w-4" />
+      )}
+    </button>
 
-                        {/* Stock Range Filter */}
-                        <div className="border-t border-[#e2e0db] my-1"></div>
-                        <div className="px-3 py-2">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[13px] font-medium">Stock Range</span>
-                            {availableFilterTypes.stock && (
-                              <Checkbox checked className="h-4 w-4" />
-                            )}
-                          </div>
-                          {availableFilterTypes.stock ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  placeholder="Min"
-                                  value={stockMin}
-                                  onChange={(e) => setStockMin(e.target.value)}
-                                  className="h-8 text-[12px]"
-                                />
-                                <span className="text-[#9e9b95]">-</span>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  placeholder="Max"
-                                  value={stockMax}
-                                  onChange={(e) => setStockMax(e.target.value)}
-                                  className="h-8 text-[12px]"
-                                />
-                              </div>
-                              <Button
-                                onClick={applyStockFilter}
-                                size="sm"
-                                className="w-full bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
-                                disabled={!stockMin && !stockMax}
-                              >
-                                Apply Stock Filter
-                              </Button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => addFilterType('stock')}
-                              className="w-full text-left text-[12px] text-[#6b6862] hover:text-[#6046ff] py-1"
-                            >
-                              + Add stock range
-                            </button>
-                          )}
-                        </div>
+    {/* Stock Range Toggle */}
+    <div className="border-t border-[#e2e0db] my-1"></div>
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addFilterType('stock');
+        setOpenDropdown(null);
+      }}
+      className={cn(
+        "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+        availableFilterTypes.stock
+          ? "bg-[#ede9ff] text-[#6046ff]"
+          : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+      )}
+    >
+      <span>Stock Range</span>
+      {availableFilterTypes.stock && (
+        <Checkbox checked className="h-4 w-4" />
+      )}
+    </button>
 
-                        {/* Date Filters */}
-                        <div className="border-t border-[#e2e0db] my-1"></div>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            addFilterType('dates');
-                          }}
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
-                            availableFilterTypes.dates
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
-                          )}
-                        >
-                          <span>Date Filters</span>
-                          {availableFilterTypes.dates && (
-                            <Checkbox checked className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </PopoverContent>
+    {/* Date Filters */}
+    <div className="border-t border-[#e2e0db] my-1"></div>
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addFilterType('dates');
+        setOpenDropdown(null);
+      }}
+      className={cn(
+        "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
+        availableFilterTypes.dates
+          ? "bg-[#ede9ff] text-[#6046ff]"
+          : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+      )}
+    >
+      <span>Date Filters</span>
+      {availableFilterTypes.dates && (
+        <Checkbox checked className="h-4 w-4" />
+      )}
+    </button>
+  </div>
+</PopoverContent>
                   </Popover>
                 </div>
               </div>
