@@ -121,8 +121,18 @@ const serviceTitles: Record<string, string> = {
   description: "Description Optimization",
   metaTitle: "Meta SEO Optimization",
   metaDescription: "Meta SEO Optimization",
+  handle:"Handle Optimization",
+  pricing:"Price Optimization",
+  imageALT: "Image ALT Optimization",
   image: "Image Optimization",
   keywords: "Keywords Optimization",
+  sku: "SKU Optimization",
+  productType: "Product Type Optimization",
+  vendor: "Vendor Optimization",
+  collection: "Collections Optimization",
+  tag: "Tags Optimization",
+  specification: "Spacification Optimization",
+  metafields: "Meta Fields Optimization",
 };
 
 const searchFields = [
@@ -890,6 +900,7 @@ if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
       <div className="min-h-screen font-['DM_Sans'] bg-[#f5f4f1]">
         <div className="p-7">
           {/* Page Header */}
+            <h1 className="text-[32px] font-bold text-[#4f38d4]">{serviceTitles[service]}</h1>
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-[22px] font-bold text-[#1a1917]">Select Products</h1>
