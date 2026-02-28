@@ -1575,7 +1575,7 @@ if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
                             >
                               <div className="font-medium">Select all store products</div>
                               <div className="text-[11px] text-[#9e9b95] mt-0.5">
-                                All products in your store ({totalFilteredCount.toLocaleString()} total)
+                                All products in your store ({totalFilteredCount.toLocaleString()}+ total)
                               </div>
                             </button>)
                             }
@@ -1626,7 +1626,7 @@ if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
                         <span className="text-[12.5px] text-[#6b6862]">
                           {allSelection ? (
                             <>
-                              {totalFilteredCount.toLocaleString()} selected
+                              {totalFilteredCount.toLocaleString()}+ selected
                             </>
                           ) : (
                             <>
@@ -1848,7 +1848,18 @@ if (filters.stockMax !== undefined) params.stockMax = filters.stockMax;
         )}
       >
         <div className="flex items-center gap-1">
-          <span className="text-sm font-semibold">{selectedProducts.length} selected</span>
+          <span className="text-sm font-semibold">
+          {allSelection ? (
+                            <>
+                              {totalFilteredCount.toLocaleString()}+ selected
+                            </>
+                          ) : (
+                            <>
+                              {selectedProducts.length} selected
+                            </>
+                          )}
+                          </span>
+          
           <span className="text-sm text-white/60"> • Ready for {serviceTitles[service]}</span>
         </div>
         <button

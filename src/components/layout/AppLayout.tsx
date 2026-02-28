@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Type,
@@ -86,7 +87,7 @@ const navSections = [
       // { icon: LinkIcon, label: "Canonical URLs", path: "/products?service=canonical" },
     ]
   },
-    {
+  {
     title: "Pricing & Inventory",
     items: [
       { icon: DollarSign, label: "Price Optimization", path: "/products?service=pricing", popular: true },
@@ -155,6 +156,8 @@ interface AppSidebarProps {
 function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps) {
   const location = useLocation();
   const [openSections, setOpenSections] = useState<string[]>(navSections.map(s => s.title));
+  const searchParams = new URLSearchParams(location.search);
+  const currentService = searchParams.get("service");
 
   // Close sidebar on mobile when clicking outside
   useEffect(() => {
@@ -259,9 +262,13 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
               )}
               <CollapsibleContent className="space-y-0.5">
                 {section.items.map((item) => {
+                  const itemService = new URLSearchParams(item.path.split("?")[1]).get("service");
+
                   const isActive = item.end
                     ? location.pathname === item.path
-                    : location.pathname.startsWith(item.path.split('?')[0]);
+                    : itemService
+                      ? location.pathname === "/products" && currentService === itemService
+                      : location.pathname === item.path;
 
                   return (
                     <Link
