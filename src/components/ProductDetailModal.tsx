@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, Calendar, Tag, Building, Package, DollarSign, Layers } from "lucide-react";
+import { X, Calendar, Tag, Building, Package, DollarSign, Layers, CheckCircle, AlertCircle, Badge } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import contentRender from "@/components/contentRender";
@@ -13,7 +13,7 @@ interface Product {
   productType: string;
   tags: string[];
   description: string;
-  descriptionHtml:any;
+  descriptionHtml: any;
   featuredMedia?: {
     preview: {
       image: {
@@ -21,9 +21,9 @@ interface Product {
       };
     };
   };
-  seo?:{
-    title?:string;
-    description?:string;
+  seo?: {
+    title?: string;
+    description?: string;
   }
   priceRangeV2: {
     minVariantPrice: {
@@ -68,12 +68,19 @@ const getStatusBadgeClass = (status: string) => {
   }
 };
 
+// Helper function to get plain text length from HTML
+const getDescriptionLength = (htmlContent: string) => {
+  if (!htmlContent) return 0;
+  // Remove HTML tags and count characters
+  const plainText = htmlContent.replace(/<[^>]*>/g, '');
+  return plainText.length;
+};
 export function ProductDetailModal({ product, isOpen, onClose, service }: ProductDetailModalProps) {
   if (!product) return null;
 
   const imageUrl = product.featuredMedia?.preview?.image?.url ||
     'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop';
-  
+
   const variant = product.variants.edges[0]?.node;
   const sku = variant?.sku || 'No SKU';
 
@@ -83,9 +90,107 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
       case 'title':
         return (
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-[#6b6862]">Current Title</h3>
-            <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
-              <p className="text-lg font-semibold text-[#1a1917]">{product.title}</p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-[#6b6862]">Current Title</h3>
+              {product.title && (
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs",
+                      product.title.length <= 70
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    )}
+                  >
+                    {product.title.length <= 70 ? (
+                      <>✓ SEO Friendly</>
+                    ) : (
+                      <>⚠ Needs Optimization</>
+                    )}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            <div className={cn(
+              "p-4 rounded-lg border transition-colors",
+              !product.title && "bg-[#f5f4f1] border-[#e2e0db]",
+              product.title && product.title.length <= 50 && "bg-green-50/30 border-green-200",
+              product.title && product.title.length > 50 && product.title.length <= 70 && "bg-blue-50/30 border-blue-200",
+              product.title && product.title.length > 70 && "bg-amber-50/30 border-amber-300"
+            )}>
+              <p className="text-lg font-semibold text-[#1a1917] break-words mb-3">
+                {product.title || "No title available"}
+              </p>
+
+              {product.title && (
+                <>
+                  {/* Character count progress bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[#6b6862]">Character count</span>
+                      <span className={cn(
+                        "font-medium",
+                        product.title.length <= 70 ? "text-green-600" : "text-amber-600"
+                      )}>
+                        {product.title.length}/70
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-[#e2e0db] rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          product.title.length <= 50 && "bg-green-500",
+                          product.title.length > 50 && product.title.length <= 70 && "bg-blue-500",
+                          product.title.length > 70 && "bg-amber-500"
+                        )}
+                        style={{ width: `${Math.min((product.title.length / 70) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* SEO Recommendations */}
+                  <div className="mt-3 space-y-2">
+                    {product.title.length > 70 ? (
+                      <div className="flex items-start gap-2 text-amber-700 bg-amber-50 p-2 rounded text-xs">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Title is too long ({product.title.length - 70} characters over limit)</p>
+                          <p className="text-amber-600 mt-0.5">Search engines may truncate titles after 70 characters. Consider shortening to improve visibility.</p>
+                        </div>
+                      </div>
+                    ) : product.title.length < 30 ? (
+                      <div className="flex items-start gap-2 text-blue-700 bg-blue-50 p-2 rounded text-xs">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Title is quite short</p>
+                          <p className="text-blue-600 mt-0.5">Adding more relevant keywords could improve SEO performance.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2 text-green-700 bg-green-50 p-2 rounded text-xs">
+                        <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Good title length for SEO</p>
+                          <p className="text-green-600 mt-0.5">Your title is optimized for search engines.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Keyword suggestion (optional) */}
+                    {product.title && product.title.split(' ').length < 3 && (
+                      <div className="flex items-start gap-2 text-purple-700 bg-purple-50 p-2 rounded text-xs">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Consider adding more keywords</p>
+                          <p className="text-purple-600 mt-0.5">Titles with 3-5 words typically perform better in search results.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );
@@ -93,14 +198,200 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
       case 'description':
         return (
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-[#6b6862]">Current Description</h3>
-            {/* <div 
-              className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db] prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ 
-                __html: product.descriptionHtml || '<p class="text-[#9e9b95] italic">No description available</p>' 
-              }}
-            /> */}
-            {contentRender({ content: product.descriptionHtml })}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-[#6b6862]">Current Description</h3>
+              {product.descriptionHtml && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs",
+                    getDescriptionLength(product.descriptionHtml) >= 300 && getDescriptionLength(product.descriptionHtml) <= 600 && "bg-green-50 text-green-700 border-green-200",
+                    getDescriptionLength(product.descriptionHtml) > 600 && getDescriptionLength(product.descriptionHtml) <= 1000 && "bg-blue-50 text-blue-700 border-blue-200",
+                    getDescriptionLength(product.descriptionHtml) > 1000 && "bg-amber-50 text-amber-700 border-amber-200",
+                    getDescriptionLength(product.descriptionHtml) < 300 && getDescriptionLength(product.descriptionHtml) >= 200 && "bg-amber-50 text-amber-700 border-amber-200",
+                    getDescriptionLength(product.descriptionHtml) < 200 && "bg-red-50 text-red-700 border-red-200"
+                  )}
+                >
+                  {getDescriptionLength(product.descriptionHtml) < 200 ? (
+                    <>⚠ Too Short</>
+                  ) : getDescriptionLength(product.descriptionHtml) < 300 ? (
+                    <>⚠ Needs More Content</>
+                  ) : getDescriptionLength(product.descriptionHtml) <= 600 ? (
+                    <>✓ SEO Optimized</>
+                  ) : getDescriptionLength(product.descriptionHtml) <= 1000 ? (
+                    <>✓ Good Length</>
+                  ) : (
+                    <>⚠ Very Long</>
+                  )}
+                </Badge>
+              )}
+            </div>
+
+            <div className={cn(
+              "p-4 rounded-lg border transition-colors",
+              !product.descriptionHtml && "bg-[#f5f4f1] border-[#e2e0db]",
+              product.descriptionHtml && getDescriptionLength(product.descriptionHtml) < 200 && "bg-red-50/30 border-red-200",
+              product.descriptionHtml && getDescriptionLength(product.descriptionHtml) >= 200 && getDescriptionLength(product.descriptionHtml) < 300 && "bg-amber-50/30 border-amber-200",
+              product.descriptionHtml && getDescriptionLength(product.descriptionHtml) >= 300 && getDescriptionLength(product.descriptionHtml) <= 600 && "bg-green-50/30 border-green-200",
+              product.descriptionHtml && getDescriptionLength(product.descriptionHtml) > 600 && getDescriptionLength(product.descriptionHtml) <= 1000 && "bg-blue-50/30 border-blue-200",
+              product.descriptionHtml && getDescriptionLength(product.descriptionHtml) > 1000 && "bg-amber-50/30 border-amber-300"
+            )}>
+              {contentRender({ content: product.descriptionHtml })}
+
+              {product.descriptionHtml && (
+                <>
+                  {/* Character count progress bar */}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[#6b6862]">Character count</span>
+                      <span className={cn(
+                        "font-medium",
+                        getDescriptionLength(product.descriptionHtml) < 200 && "text-red-600",
+                        getDescriptionLength(product.descriptionHtml) >= 200 && getDescriptionLength(product.descriptionHtml) < 300 && "text-amber-600",
+                        getDescriptionLength(product.descriptionHtml) >= 300 && getDescriptionLength(product.descriptionHtml) <= 600 && "text-green-600",
+                        getDescriptionLength(product.descriptionHtml) > 600 && getDescriptionLength(product.descriptionHtml) <= 1000 && "text-blue-600",
+                        getDescriptionLength(product.descriptionHtml) > 1000 && "text-amber-600"
+                      )}>
+                        {getDescriptionLength(product.descriptionHtml)} characters
+                      </span>
+                    </div>
+
+                    {/* Progress bar with multiple thresholds */}
+                    <div className="relative w-full h-2 bg-[#e2e0db] rounded-full overflow-hidden">
+                      {/* Minimum threshold marker (200) */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10"
+                        style={{ left: `${(200 / 1000) * 100}%` }}
+                      />
+                      {/* Recommended start marker (300) */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-green-500 z-10"
+                        style={{ left: `${(300 / 1000) * 100}%` }}
+                      />
+                      {/* Recommended end marker (600) */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-green-500 z-10"
+                        style={{ left: `${(600 / 1000) * 100}%` }}
+                      />
+                      {/* Good to go marker (1000) */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-blue-500 z-10"
+                        style={{ left: `${(1000 / 1000) * 100}%` }}
+                      />
+                      {/* Progress fill */}
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          getDescriptionLength(product.descriptionHtml) < 200 && "bg-red-500",
+                          getDescriptionLength(product.descriptionHtml) >= 200 && getDescriptionLength(product.descriptionHtml) < 300 && "bg-amber-500",
+                          getDescriptionLength(product.descriptionHtml) >= 300 && getDescriptionLength(product.descriptionHtml) <= 600 && "bg-green-500",
+                          getDescriptionLength(product.descriptionHtml) > 600 && getDescriptionLength(product.descriptionHtml) <= 1000 && "bg-blue-500",
+                          getDescriptionLength(product.descriptionHtml) > 1000 && "bg-amber-500"
+                        )}
+                        style={{ width: `${Math.min((getDescriptionLength(product.descriptionHtml) / 1000) * 100, 100)}%` }}
+                      />
+                    </div>
+
+                    {/* Threshold labels */}
+                    <div className="flex justify-between text-[10px] text-[#6b6862] px-1">
+                      <span>0</span>
+                      <span className="text-red-500">200 (Min)</span>
+                      <span className="text-green-500">300-600 (Best)</span>
+                      <span className="text-blue-500">1000 (Good)</span>
+                      <span>1500+</span>
+                    </div>
+                  </div>
+
+                  {/* SEO Recommendations */}
+                  <div className="mt-4 space-y-2">
+                    {getDescriptionLength(product.descriptionHtml) < 200 && (
+                      <div className="flex items-start gap-2 text-red-700 bg-red-50 p-3 rounded text-sm">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium mb-1">Description is too short ({200 - getDescriptionLength(product.descriptionHtml)} characters missing)</p>
+                          <p className="text-red-600 text-sm">Minimum recommended length is 200 characters. Short descriptions may not provide enough information for search engines to properly index your product.</p>
+                          <ul className="list-disc list-inside mt-2 text-xs text-red-600 space-y-1">
+                            <li>Add key product features and benefits</li>
+                            <li>Include relevant keywords naturally</li>
+                            <li>Describe what makes your product unique</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {getDescriptionLength(product.descriptionHtml) >= 200 && getDescriptionLength(product.descriptionHtml) < 300 && (
+                      <div className="flex items-start gap-2 text-amber-700 bg-amber-50 p-3 rounded text-sm">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium mb-1">Good start! Add a bit more content</p>
+                          <p className="text-amber-600 text-sm">Your description meets the minimum requirement, but adding more detail could improve SEO performance.</p>
+                          <p className="text-xs text-amber-600 mt-2">Aim for 300-600 characters for optimal search engine visibility.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {getDescriptionLength(product.descriptionHtml) >= 300 && getDescriptionLength(product.descriptionHtml) <= 600 && (
+                      <div className="flex items-start gap-2 text-green-700 bg-green-50 p-3 rounded text-sm">
+                        <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium mb-1">Excellent description length!</p>
+                          <p className="text-green-600 text-sm">Your description is perfectly optimized for SEO. It provides enough detail for search engines while remaining concise for users.</p>
+                          <ul className="list-disc list-inside mt-2 text-xs text-green-600">
+                            <li>Great balance of keywords and readability</li>
+                            <li>Ideal length for search engine crawlers</li>
+                            <li>Likely to rank well in search results</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {getDescriptionLength(product.descriptionHtml) > 600 && getDescriptionLength(product.descriptionHtml) <= 1000 && (
+                      <div className="flex items-start gap-2 text-blue-700 bg-blue-50 p-3 rounded text-sm">
+                        <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium mb-1">Comprehensive description</p>
+                          <p className="text-blue-600 text-sm">Your description is thorough and detailed. This length works well for complex products.</p>
+                          <p className="text-xs text-blue-600 mt-2">Consider breaking up text with bullet points or subheadings for better readability.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {getDescriptionLength(product.descriptionHtml) > 1000 && (
+                      <div className="flex items-start gap-2 text-amber-700 bg-amber-50 p-3 rounded text-sm">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium mb-1">Very long description</p>
+                          <p className="text-amber-600 text-sm">While detailed content is good, very long descriptions might:</p>
+                          <ul className="list-disc list-inside mt-2 text-xs text-amber-600 space-y-1">
+                            <li>Overwhelm users with too much information</li>
+                            <li>Dilute important keywords</li>
+                            <li>Cause mobile usability issues</li>
+                          </ul>
+                          <p className="text-xs text-amber-600 mt-2">Consider condensing or splitting into sections with tabs/accordions.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Word count and readability (optional) */}
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <Badge variant="outline" className="bg-white">
+                      ~{Math.round(getDescriptionLength(product.descriptionHtml) / 5)} words
+                    </Badge>
+                    <Badge variant="outline" className="bg-white">
+                      ~{Math.ceil(getDescriptionLength(product.descriptionHtml) / 100)} paragraphs
+                    </Badge>
+                  </div>
+                </>
+              )}
+
+              {!product.descriptionHtml && (
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded text-sm mt-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>No description available. Adding a description is highly recommended for SEO.</span>
+                </div>
+              )}
+            </div>
           </div>
         );
 
@@ -111,103 +402,103 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
             <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
               <p className="text-[#1a1917]">
                 {/* Meta Title Section */}
-{service === 'metaTitle' && (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <h3 className="text-sm font-medium text-[#6b6862]">Meta Title</h3>
-      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-[#6b6862]">
-        {product.seo.title?.length || 0}/70 characters
-      </span>
-    </div>
-    
-    <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
-      <p className="text-[#1a1917] break-words">
-        {product.seo.title || 'No meta title available'}
-      </p>
-    </div>
+                {service === 'metaTitle' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-[#6b6862]">Meta Title</h3>
+                      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-[#6b6862]">
+                        {product.seo.title?.length || 0}/70 characters
+                      </span>
+                    </div>
 
-    {/* Character count warning */}
-    {(product.seo.title?.length || 0) > 70 && (
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-        <div className="flex items-start gap-2">
-          <span className="text-amber-600 font-bold">⚠️</span>
-          <div>
-            <p className="text-xs font-medium text-amber-800">
-              Meta title exceeds recommended limit
-            </p>
-            <p className="text-xs text-amber-700 mt-1">
-              Your meta title is {(product.seo.title?.length || 0) - 70} characters over the optimal 70 character limit. 
-              Search engines may truncate longer titles in search results.
-            </p>
-          </div>
-        </div>
-      </div>
-    )}
+                    <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                      <p className="text-[#1a1917] break-words">
+                        {product.seo.title || 'No meta title available'}
+                      </p>
+                    </div>
 
-    {(product.seo.title?.length || 0) < 30 && (product.seo.title?.length || 0) > 0 && (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <div className="flex items-start gap-2">
-          <span className="text-blue-600">ℹ️</span>
-          <div>
-            <p className="text-xs font-medium text-blue-800">
-              Meta title is shorter than recommended
-            </p>
-            <p className="text-xs text-blue-700 mt-1">
-              Consider adding more descriptive text to reach the optimal 50-60 character range.
-            </p>
-          </div>
-        </div>
-      </div>
-    )}
+                    {/* Character count warning */}
+                    {(product.seo.title?.length || 0) > 70 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="text-amber-600 font-bold">⚠️</span>
+                          <div>
+                            <p className="text-xs font-medium text-amber-800">
+                              Meta title exceeds recommended limit
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                              Your meta title is {(product.seo.title?.length || 0) - 70} characters over the optimal 70 character limit.
+                              Search engines may truncate longer titles in search results.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-    {/* SEO Preview */}
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <p className="text-xs font-medium text-blue-800 mb-2">Google Search Preview:</p>
-      <div className="bg-white rounded-lg p-3 border border-blue-100">
-        <p className="text-[#1a0dab] text-lg font-medium font-sans line-clamp-1">
-          {product.seo.title || 'Product Title'}
-        </p>
-        <p className="text-[#006621] text-sm font-sans mt-1">
-          {window.location.origin}/products/{product.handle}
-        </p>
-        <p className="text-[#545454] text-sm font-sans mt-1 line-clamp-2">
-          {product.seo.description?.substring(0, 160) || 'Product description will appear here...'}
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+                    {(product.seo.title?.length || 0) < 30 && (product.seo.title?.length || 0) > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="text-blue-600">ℹ️</span>
+                          <div>
+                            <p className="text-xs font-medium text-blue-800">
+                              Meta title is shorter than recommended
+                            </p>
+                            <p className="text-xs text-blue-700 mt-1">
+                              Consider adding more descriptive text to reach the optimal 50-60 character range.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-{/* Meta Description Section */}
-{service === 'metaDescription' && (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <h3 className="text-sm font-medium text-[#6b6862]">Meta Description</h3>
-      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-[#6b6862]">
-        {(product.seo.description?.length || 0)}/160 characters
-      </span>
-    </div>
-    
-    <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
-      <p className="text-[#1a1917] break-words">
-        {product.seo.description || 'No meta description available'}
-      </p>
-    </div>
+                    {/* SEO Preview */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-xs font-medium text-blue-800 mb-2">Google Search Preview:</p>
+                      <div className="bg-white rounded-lg p-3 border border-blue-100">
+                        <p className="text-[#1a0dab] text-lg font-medium font-sans line-clamp-1">
+                          {product.seo.title || 'Product Title'}
+                        </p>
+                        <p className="text-[#006621] text-sm font-sans mt-1">
+                          {window.location.origin}/products/{product.handle}
+                        </p>
+                        <p className="text-[#545454] text-sm font-sans mt-1 line-clamp-2">
+                          {product.seo.description?.substring(0, 160) || 'Product description will appear here...'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-    {/* Character count warning */}
-    {(product.seo.description?.length || 0) > 160 && (
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-        <div className="flex items-start gap-2">
-          <span className="text-amber-600 font-bold">⚠️</span>
-          <div>
-            <p className="text-xs font-medium text-amber-800">
-              Meta description exceeds recommended limit
-            </p>
-            <p className="text-xs text-amber-700 mt-1">
-              Your meta description is {(product.seo.description?.length || 0) - 160} characters over the optimal 160 character limit. 
-              Search engines may truncate longer descriptions in search results.
-            </p>
-            {/* <Button 
+                {/* Meta Description Section */}
+                {service === 'metaDescription' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-[#6b6862]">Meta Description</h3>
+                      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-[#6b6862]">
+                        {(product.seo.description?.length || 0)}/160 characters
+                      </span>
+                    </div>
+
+                    <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                      <p className="text-[#1a1917] break-words">
+                        {product.seo.description || 'No meta description available'}
+                      </p>
+                    </div>
+
+                    {/* Character count warning */}
+                    {(product.seo.description?.length || 0) > 160 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="text-amber-600 font-bold">⚠️</span>
+                          <div>
+                            <p className="text-xs font-medium text-amber-800">
+                              Meta description exceeds recommended limit
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                              Your meta description is {(product.seo.description?.length || 0) - 160} characters over the optimal 160 character limit.
+                              Search engines may truncate longer descriptions in search results.
+                            </p>
+                            {/* <Button 
               variant="link" 
               className="text-xs text-amber-700 underline p-0 h-auto mt-2"
               onClick={() => {
@@ -217,45 +508,45 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
             >
               Optimize to 160 characters →
             </Button> */}
-          </div>
-        </div>
-      </div>
-    )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-    {(product.seo.description?.length || 0) < 120 && (product.seo.description?.length || 0) > 0 && (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <div className="flex items-start gap-2">
-          <span className="text-blue-600">ℹ️</span>
-          <div>
-            <p className="text-xs font-medium text-blue-800">
-              Meta description is shorter than recommended
-            </p>
-            <p className="text-xs text-blue-700 mt-1">
-              Consider adding more details to reach the optimal 120-160 character range for better click-through rates.
-            </p>
-          </div>
-        </div>
-      </div>
-    )}
+                    {(product.seo.description?.length || 0) < 120 && (product.seo.description?.length || 0) > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="text-blue-600">ℹ️</span>
+                          <div>
+                            <p className="text-xs font-medium text-blue-800">
+                              Meta description is shorter than recommended
+                            </p>
+                            <p className="text-xs text-blue-700 mt-1">
+                              Consider adding more details to reach the optimal 120-160 character range for better click-through rates.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-    {/* SEO Preview */}
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <p className="text-xs font-medium text-blue-800 mb-2">Google Search Preview:</p>
-      <div className="bg-white rounded-lg p-3 border border-blue-100">
-        <p className="text-[#1a0dab] text-lg font-medium font-sans line-clamp-1">
-          {product.seo.title || 'Product Title'}
-        </p>
-        <p className="text-[#006621] text-sm font-sans mt-1">
-          {window.location.origin}/products/{product.handle}
-        </p>
-        <p className="text-[#545454] text-sm font-sans mt-1 line-clamp-2">
-          {product.seo.description?.substring(0, 160) || 'Product description will appear here...'}
-          {(product.seo.description?.length || 0) > 160 ? '...' : ''}
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+                    {/* SEO Preview */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-xs font-medium text-blue-800 mb-2">Google Search Preview:</p>
+                      <div className="bg-white rounded-lg p-3 border border-blue-100">
+                        <p className="text-[#1a0dab] text-lg font-medium font-sans line-clamp-1">
+                          {product.seo.title || 'Product Title'}
+                        </p>
+                        <p className="text-[#006621] text-sm font-sans mt-1">
+                          {window.location.origin}/products/{product.handle}
+                        </p>
+                        <p className="text-[#545454] text-sm font-sans mt-1 line-clamp-2">
+                          {product.seo.description?.substring(0, 160) || 'Product description will appear here...'}
+                          {(product.seo.description?.length || 0) > 160 ? '...' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </p>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -366,7 +657,7 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
               {product.tags && product.tags.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {product.tags.map((tag, index) => (
-                    <span 
+                    <span
                       key={index}
                       className="px-2 py-1 bg-white rounded-md text-xs text-[#6046ff] border border-[#e2e0db]"
                     >
@@ -428,7 +719,7 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
         <DialogHeader className="border-b border-[#e2e0db] pb-4">
           <DialogTitle className="text-xl font-bold text-[#1a1917] flex items-center justify-between">
             <span>Product Details</span>
-            
+
           </DialogTitle>
         </DialogHeader>
 
