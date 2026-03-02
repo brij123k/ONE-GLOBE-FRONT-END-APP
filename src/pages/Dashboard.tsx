@@ -265,7 +265,7 @@ export default function Dashboard() {
         <div className="p-7">
           {/* Welcome Section */}
           <div className="mb-8">
-            <h1 className="text-[22px] font-bold text-[#1a1917]">
+            <h1 className="text-[22px] font-bold text-[#95BF46]">
               Welcome back, {storeDetail.owner || 'Store Owner'}
             </h1>
             <p className="text-[13.5px] text-[#6b6862] mt-1">
@@ -349,8 +349,8 @@ export default function Dashboard() {
                     className={cn(
                       "flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all",
                       selectedCategory === category.id
-                        ? "bg-[#1a1917] text-white"
-                        : "bg-[#f5f4f1] text-[#6b6862] hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                        ? "bg-[#95BF46] text-white"
+                        : "bg-[#f5f4f1] text-[#6b6862] hover:bg-[#ede9ff] hover:text-[#95BF46]"
                     )}
                   >
                     <category.icon className="w-4 h-4" />
@@ -393,7 +393,7 @@ export default function Dashboard() {
                   setSearchQuery("");
                   setSelectedCategory("all");
                 }}
-                className="border-[#e2e0db] hover:border-[#6046ff] hover:text-[#6046ff]"
+                className="border-[#e2e0db] hover:border-[#95BF46] hover:text-[#95BF46]"
               >
                 Clear all filters
               </Button>

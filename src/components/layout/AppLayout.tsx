@@ -203,13 +203,13 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
       <div className="h-16 flex items-center justify-between px-4 border-b border-[#e2e0db] bg-white">
         {!collapsed ? (
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6046ff] to-[#4f38d4] flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#95BF46] flex items-center justify-center flex-shrink-0">
               <Zap className="w-4 h-4 text-white" />
             </div>
             <span className="font-semibold text-[#1a1917] truncate text-sm">AI Optimizer</span>
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6046ff] to-[#4f38d4] flex items-center justify-center mx-auto flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#95BF46] flex items-center justify-center mx-auto flex-shrink-0">
             <Zap className="w-4 h-4 text-white" />
           </div>
         )}
@@ -251,7 +251,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
               onOpenChange={() => toggleSection(section.title)}
             >
               {!collapsed && (
-                <CollapsibleTrigger className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] font-semibold text-[#9e9b95] uppercase tracking-wider hover:text-[#6046ff]">
+                <CollapsibleTrigger className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] font-semibold text-[#9e9b95] uppercase tracking-wider hover:text-[#95BF46]">
                   <span>{section.title}</span>
                   <ChevronDown className={cn(
                     "w-3 h-3 transition-transform",
@@ -276,7 +276,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative",
                         isActive
-                          ? "bg-[#ede9ff] text-[#6046ff]"
+                          ? "bg-[#ede9ff] text-[#95BF46]"
                           : "text-[#6b6862] hover:bg-[#f5f4f1] hover:text-[#1a1917]",
                         item.comingSoon && "opacity-50 cursor-not-allowed"
                       )}
@@ -291,13 +291,13 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
                     >
                       <item.icon className={cn(
                         "w-4 h-4 flex-shrink-0",
-                        isActive ? "text-[#6046ff]" : "text-[#9e9b95]"
+                        isActive ? "text-[#95BF46]" : "text-[#9e9b95]"
                       )} />
                       {!collapsed && (
                         <>
                           <span className="font-medium text-[12.5px] truncate">{item.label}</span>
                           {item.popular && (
-                            <span className="ml-auto text-[9px] font-medium bg-[#ede9ff] text-[#6046ff] px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            <span className="ml-auto text-[9px] font-medium bg-[#ede9ff] text-[#95BF46] px-1.5 py-0.5 rounded-full flex-shrink-0">
                               Popular
                             </span>
                           )}
@@ -334,14 +334,14 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
                 isActive
-                  ? "bg-[#ede9ff] text-[#6046ff]"
+                  ? "bg-[#ede9ff] text-[#95BF46]"
                   : "text-[#6b6862] hover:bg-[#f5f4f1] hover:text-[#1a1917]"
               )}
               onClick={() => isMobile && setCollapsed(true)}
             >
               <item.icon className={cn(
                 "w-4 h-4 flex-shrink-0",
-                isActive ? "text-[#6046ff]" : "text-[#9e9b95]"
+                isActive ? "text-[#95BF46]" : "text-[#9e9b95]"
               )} />
               {!collapsed && (
                 <span className="font-medium text-[12.5px] truncate">{item.label}</span>
@@ -355,7 +355,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
           <div className="mt-4 pt-4 border-t border-[#e2e0db]">
             <div className="flex items-center gap-3 px-3 py-2">
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-gradient-to-r from-[#6046ff] to-[#4f38d4] text-white text-xs">
+                <AvatarFallback className="bg-[#95BF46] text-white text-xs">
                   {getInitials(shop.owner)}
                 </AvatarFallback>
               </Avatar>
@@ -513,7 +513,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
               className="relative text-[#9e9b95] hover:text-[#1a1917]"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#6046ff] rounded-full animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#95BF46] rounded-full animate-pulse" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
@@ -537,7 +537,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
               className="gap-2 text-[#9e9b95] hover:text-[#1a1917] px-2"
             >
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-gradient-to-r from-[#6046ff] to-[#4f38d4] text-white text-sm">
+                <AvatarFallback className="bg-[#95BF46] text-white text-sm">
                   {getInitials(shop.owner)}
                 </AvatarFallback>
               </Avatar>
@@ -643,8 +643,8 @@ export function AppLayout({ children, title, shop: initialShop }: AppLayoutProps
                 © {new Date().getFullYear()} AI Optimizer. All rights reserved.
               </div>
               <div className="flex items-center gap-6">
-                <Link to="/privacy" className="hover:text-[#6046ff] transition-colors">Privacy</Link>
-                <Link to="/terms" className="hover:text-[#6046ff] transition-colors">Terms</Link>
+                <Link to="/privacy" className="hover:text-[#95BF46] transition-colors">Privacy</Link>
+                <Link to="/terms" className="hover:text-[#95BF46] transition-colors">Terms</Link>
               </div>
             </div>
           </footer>

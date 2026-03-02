@@ -24,7 +24,7 @@ export function OptimizationCard({
       className={cn(
         "group relative p-6 rounded-2xl border transition-smooth cursor-pointer overflow-hidden",
         gradient
-          ? "bg-gradient-ai border-transparent text-primary-foreground hover:shadow-card-hover"
+          ? "bg-[#95BF46] border-transparent text-white hover:shadow-card-hover"
           : "bg-card border-border hover:border-primary/30 hover:shadow-card-hover",
         comingSoon && "opacity-60 cursor-not-allowed"
       )}
@@ -39,14 +39,14 @@ export function OptimizationCard({
         className={cn(
           "w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-smooth group-hover:scale-110",
           gradient
-            ? "bg-white/20"
+            ? "bg-white"
             : "bg-gradient-ai-soft"
         )}
       >
         <Icon
           className={cn(
             "w-6 h-6",
-            gradient ? "text-primary-foreground" : "text-primary"
+              gradient ? "text-[#95BF46]" : "text-[#95BF46]"
           )}
         />
       </div>
@@ -71,7 +71,7 @@ export function OptimizationCard({
 
       {/* Coming Soon Badge */}
       {comingSoon && (
-        <div className="absolute top-4 right-4 text-xs font-medium bg-warning/20 text-warning px-2 py-1 rounded-full">
+        <div className="absolute top-4 right-4 text-xs font-medium bg-white text-[#95BF46] px-2 py-1 rounded-full">
           Coming Soon
         </div>
       )}

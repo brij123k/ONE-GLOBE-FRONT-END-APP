@@ -124,7 +124,7 @@ export function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobi
               className="relative text-muted-foreground hover:text-foreground"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#95BF46] rounded-full animate-pulse" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">

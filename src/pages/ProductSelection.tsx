@@ -922,7 +922,7 @@ export default function ProductSelection() {
       <div className="min-h-screen font-['DM_Sans'] bg-[#f5f4f1]">
         <div className="p-7">
           {/* Page Header */}
-          <h1 className="text-[32px] font-bold text-[#4f38d4]">{serviceTitles[service]}</h1>
+          <h1 className="text-[32px] font-bold text-[#95BF46]">{serviceTitles[service]}</h1>
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-[22px] font-bold text-[#1a1917]">Select Products</h1>
@@ -933,7 +933,7 @@ export default function ProductSelection() {
             <Button
               onClick={handleContinue}
               disabled={selectedProducts.length === 0 || isProcessingSelection}
-              className="bg-[#6046ff] hover:bg-[#4f38d4] text-white rounded-lg px-5 py-2.5 text-sm font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
+              className="bg-[#95BF46] hover:bg-[#c1f85b] text-white rounded-lg px-5 py-2.5 text-sm font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
             >
               {isProcessingSelection ? (
                 <>
@@ -1025,8 +1025,8 @@ export default function ProductSelection() {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                       filters.collections.length > 0
-                        ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                        ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                     )}
                   >
                     <Layers className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1059,7 +1059,7 @@ export default function ProductSelection() {
                           >
                             <Checkbox
                               checked={filters.collections.includes(collection.id)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46] flex-shrink-0"
                             />
                             <span className="flex-1 text-[13px] font-medium truncate">{collection.title}</span>
                             <span className="text-[11px] bg-[#f0ede8] text-[#6b6862] px-2 py-1 rounded-full flex-shrink-0">
@@ -1079,8 +1079,8 @@ export default function ProductSelection() {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                       filters.vendors.length > 0
-                        ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                        ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                     )}
                   >
                     <Building className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1113,7 +1113,7 @@ export default function ProductSelection() {
                           >
                             <Checkbox
                               checked={filters.vendors.includes(vendor)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46] flex-shrink-0"
                             />
                             <span className="text-[13px] font-medium truncate">{vendor}</span>
                           </div>
@@ -1130,8 +1130,8 @@ export default function ProductSelection() {
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                       filters.tags.length > 0
-                        ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                        ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                        : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                     )}
                   >
                     <Tag className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1164,7 +1164,7 @@ export default function ProductSelection() {
                           >
                             <Checkbox
                               checked={filters.tags.includes(tag)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46] flex-shrink-0"
                             />
                             <span className="text-[13px] font-medium truncate">{tag}</span>
                           </div>
@@ -1182,8 +1182,8 @@ export default function ProductSelection() {
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                         filters.productTypes.length > 0
-                          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                          ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                       )}
                     >
                       <Tag className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1216,7 +1216,7 @@ export default function ProductSelection() {
                             >
                               <Checkbox
                                 checked={filters.productTypes.includes(type)}
-                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
+                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46] flex-shrink-0"
                               />
                               <span className="text-[13px] font-medium truncate">{type}</span>
                             </div>
@@ -1235,8 +1235,8 @@ export default function ProductSelection() {
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                         filters.categories.length > 0
-                          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                          ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                       )}
                     >
                       <Layers className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1269,7 +1269,7 @@ export default function ProductSelection() {
                             >
                               <Checkbox
                                 checked={filters.categories.includes(category.id)}
-                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff] flex-shrink-0"
+                                className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46] flex-shrink-0"
                               />
                               <span className="text-[13px] font-medium truncate">{category.title}</span>
                             </div>
@@ -1288,8 +1288,8 @@ export default function ProductSelection() {
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                         filters.priceMin !== undefined || filters.priceMax !== undefined
-                          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                          ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                       )}
                     >
                       <Tag className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1348,7 +1348,7 @@ export default function ProductSelection() {
                                 }
                               }}
                               size="sm"
-                              className="flex-1 bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+                              className="flex-1 bg-[#95BF46] hover:bg-[#4f38d4] text-white text-[12px] h-8"
                               disabled={!priceRangeMin && !priceRangeMax}
                             >
                               Apply
@@ -1388,8 +1388,8 @@ export default function ProductSelection() {
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                         filters.stockMin !== undefined || filters.stockMax !== undefined
-                          ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                          ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                          : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                       )}
                     >
                       <Package className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1448,7 +1448,7 @@ export default function ProductSelection() {
                                 }
                               }}
                               size="sm"
-                              className="flex-1 bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+                              className="flex-1 bg-[#95BF46] hover:bg-[#4f38d4] text-white text-[12px] h-8"
                               disabled={!stockRangeMin && !stockRangeMax}
                             >
                               Apply
@@ -1493,8 +1493,8 @@ export default function ProductSelection() {
                               className={cn(
                                 "flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[13px] font-medium transition-all whitespace-nowrap",
                                 filters[dateFilter.field]
-                                  ? "border-[#6046ff] text-[#6046ff] bg-[#ede9ff]"
-                                  : "border-[#e2e0db] text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff]"
+                                  ? "border-[#95BF46] text-[#95BF46] bg-[#ede9ff]"
+                                  : "border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff]"
                               )}
                             >
                               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1537,13 +1537,13 @@ export default function ProductSelection() {
                     <PopoverTrigger asChild>
                       <button
                         ref={moreFiltersButtonRef}
-                        className="flex items-center gap-1.5 px-3 py-2 border border-[#e2e0db] rounded-lg text-[13px] font-medium text-[#6b6862] hover:border-[#6046ff] hover:text-[#6046ff] hover:bg-[#ede9ff] transition-all whitespace-nowrap"
+                        className="flex items-center gap-1.5 px-3 py-2 border border-[#e2e0db] rounded-lg text-[13px] font-medium text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] hover:bg-[#ede9ff] transition-all whitespace-nowrap"
                       >
                         <Plus className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="truncate max-w-[80px] sm:max-w-none">More Filters</span>
                         {(availableFilterTypes.productTypes || availableFilterTypes.categories ||
                           availableFilterTypes.dates || availableFilterTypes.price || availableFilterTypes.stock) && (
-                            <span className="ml-1 px-1.5 py-0.5 bg-[#6046ff] text-white text-[10px] rounded-full flex-shrink-0">
+                            <span className="ml-1 px-1.5 py-0.5 bg-[#95BF46] text-white text-[10px] rounded-full flex-shrink-0">
                               {Object.values(availableFilterTypes).filter(Boolean).length}
                             </span>
                           )}
@@ -1567,8 +1567,8 @@ export default function ProductSelection() {
                           className={cn(
                             "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
                             availableFilterTypes.productTypes
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                              ? "bg-[#ede9ff] text-[#95BF46]"
+                              : "hover:bg-[#ede9ff] hover:text-[#95BF46]"
                           )}
                         >
                           <span>Product Types</span>
@@ -1589,8 +1589,8 @@ export default function ProductSelection() {
                           className={cn(
                             "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
                             availableFilterTypes.price
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                              ? "bg-[#ede9ff] text-[#95BF46]"
+                              : "hover:bg-[#ede9ff] hover:text-[#95BF46]"
                           )}
                         >
                           <span>Price Range</span>
@@ -1611,8 +1611,8 @@ export default function ProductSelection() {
                           className={cn(
                             "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
                             availableFilterTypes.stock
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                              ? "bg-[#ede9ff] text-[#95BF46]"
+                              : "hover:bg-[#ede9ff] hover:text-[#95BF46]"
                           )}
                         >
                           <span>Stock Range</span>
@@ -1633,8 +1633,8 @@ export default function ProductSelection() {
                           className={cn(
                             "w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors flex items-center justify-between",
                             availableFilterTypes.dates
-                              ? "bg-[#ede9ff] text-[#6046ff]"
-                              : "hover:bg-[#ede9ff] hover:text-[#6046ff]"
+                              ? "bg-[#ede9ff] text-[#95BF46]"
+                              : "hover:bg-[#ede9ff] hover:text-[#95BF46]"
                           )}
                         >
                           <span>Date Filters</span>
@@ -1654,7 +1654,7 @@ export default function ProductSelection() {
                   {activeFilterChips.map((chip) => (
                     <div
                       key={chip.id}
-                      className="flex items-center gap-1.5 px-2 py-1 bg-[#ede9ff] text-[#6046ff] rounded-lg text-[12px] font-medium"
+                      className="flex items-center gap-1.5 px-2 py-1 bg-[#ede9ff] text-[#95BF46] rounded-lg text-[12px] font-medium"
                     >
                       <span>{chip.label}</span>
                       <button
@@ -1681,7 +1681,7 @@ export default function ProductSelection() {
           {/* Loading State */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#e2e0db] rounded-xl">
-              <Loader2 className="w-12 h-12 animate-spin text-[#6046ff] mb-4" />
+              <Loader2 className="w-12 h-12 animate-spin text-[#95BF46] mb-4" />
               <h3 className="text-lg font-medium text-[#1a1917]">Loading products...</h3>
               <p className="text-sm text-[#6b6862] mt-1">Fetching your Shopify store data</p>
             </div>
@@ -1696,7 +1696,7 @@ export default function ProductSelection() {
                       <Checkbox
                         checked={selectAllOnPage}
                         onCheckedChange={toggleAllOnPage}
-                        className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                        className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46]"
                       />
                       <span className="text-[12.5px] text-[#6b6862]">
                         Select all on page ({products.length})
@@ -1708,7 +1708,7 @@ export default function ProductSelection() {
                       <button
                         onClick={() => setShowSelectionDropdown(!showSelectionDropdown)}
                         disabled={isProcessingSelection}
-                        className="flex items-center gap-1.5 text-[12.5px] text-[#6046ff] font-medium hover:underline disabled:opacity-50"
+                        className="flex items-center gap-1.5 text-[12.5px] text-[#95BF46] font-medium hover:underline disabled:opacity-50"
                       >
                         {isProcessingSelection ? (
                           <>
@@ -1734,7 +1734,7 @@ export default function ProductSelection() {
                                   handleCustomProductSelection('filtered')
                                 }
                                 }
-                                className="w-full text-left px-3 py-2.5 text-[13px] rounded-lg hover:bg-[#ede9ff] hover:text-[#6046ff] transition-colors"
+                                className="w-full text-left px-3 py-2.5 text-[13px] rounded-lg hover:bg-[#ede9ff] hover:text-[#95BF46] transition-colors"
                               >
                                 <div className="font-medium">Select all filtered products</div>
                                 <div className="text-[11px] text-[#9e9b95] mt-0.5">
@@ -1747,7 +1747,7 @@ export default function ProductSelection() {
                                 handleCustomProductSelection('all')
                               }
                               }
-                              className="w-full text-left px-3 py-2.5 text-[13px] rounded-lg hover:bg-[#ede9ff] hover:text-[#6046ff] transition-colors"
+                              className="w-full text-left px-3 py-2.5 text-[13px] rounded-lg hover:bg-[#ede9ff] hover:text-[#95BF46] transition-colors"
                             >
                               <div className="font-medium">Select all store products</div>
                               <div className="text-[11px] text-[#9e9b95] mt-0.5">
@@ -1787,7 +1787,7 @@ export default function ProductSelection() {
           <Button
             onClick={() => handleCustomProductSelection('custom')}
             size="sm"
-            className="w-full bg-[#6046ff] hover:bg-[#4f38d4] text-white text-[12px] h-8"
+            className="w-full bg-[#95BF46] hover:bg-[#4f38d4] text-white text-[12px] h-8"
           >
             Select products {customNumberRange[0]} to {customNumberRange[1]}
           </Button>
@@ -1817,7 +1817,7 @@ export default function ProductSelection() {
                             setSelectAllFiltered(false);
                             setAllSelection(false)
                           }}
-                          className="text-[12.5px] text-[#6046ff] font-medium hover:underline"
+                          className="text-[12.5px] text-[#95BF46] font-medium hover:underline"
                         >
                           Clear
                         </button>
@@ -1861,7 +1861,7 @@ export default function ProductSelection() {
                         <ChevronsRight className="w-4 h-4" />
                       </button>
                     </div>
-                    {loadingMore && <Loader2 className="w-4 h-4 animate-spin text-[#6046ff]" />}
+                    {loadingMore && <Loader2 className="w-4 h-4 animate-spin text-[#95BF46]" />}
                   </div>
 
                 </div>
@@ -1920,7 +1920,7 @@ export default function ProductSelection() {
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleProduct(product.id)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46]"
                             />
                           </div>
                           <div>
@@ -1981,15 +1981,15 @@ export default function ProductSelection() {
                           className={cn(
                             "border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md",
                             isSelected
-                              ? "border-[#6046ff] bg-[#ede9ff]"
-                              : "border-[#e2e0db] hover:border-[#6046ff]"
+                              ? "border-[#95BF46] bg-[#ede9ff]"
+                              : "border-[#e2e0db] hover:border-[#95BF46]"
                           )}
                         >
                           <div className="flex items-start gap-3" onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleProduct(product.id)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#6046ff]"
+                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46]"
                             />
                             <img
                               src={imageUrl}
@@ -2059,7 +2059,7 @@ export default function ProductSelection() {
         <button
           onClick={handleContinue}
           disabled={isProcessingSelection}
-          className="flex items-center gap-1.5 bg-[#6046ff] hover:bg-[#4f38d4] rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 bg-[#95BF46] hover:bg-[#4f38d4] rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
         >
           {isProcessingSelection ? (
             <>
