@@ -1,9 +1,14 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, Calendar, Tag, Building, Package, DollarSign, Layers, CheckCircle, AlertCircle, Badge } from "lucide-react";
+import { X, Calendar, Tag, Building, Package, DollarSign, Layers, CheckCircle, AlertCircle, Badge, ArrowRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import contentRender from "@/components/contentRender";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { postApi } from "@/services/apiService";
+import ApiConfig from "@/services/apiConfig";
+
 interface Product {
   id: string;
   title: string;
@@ -52,6 +57,25 @@ interface ProductDetailModalProps {
   service: string;
 }
 
+const serviceTitles: Record<string, string> = {
+  title: "Title Optimization",
+  description: "Description Optimization",
+  metaTitle: "Meta SEO Optimization",
+  metaDescription: "Meta SEO Optimization",
+  handle: "Handle Optimization",
+  pricing: "Price Optimization",
+  imageALT: "Image ALT Optimization",
+  image: "Image Optimization",
+  keywords: "Keywords Optimization",
+  sku: "SKU Optimization",
+  productType: "Product Type Optimization",
+  vendor: "Vendor Optimization",
+  collection: "Collections Optimization",
+  tag: "Tags Optimization",
+  specification: "Specification Optimization",
+  metafields: "Meta Fields Optimization",
+};
+
 const formatPrice = (amount: string, currencyCode: string) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -75,7 +99,11 @@ const getDescriptionLength = (htmlContent: string) => {
   const plainText = htmlContent.replace(/<[^>]*>/g, '');
   return plainText.length;
 };
+
 export function ProductDetailModal({ product, isOpen, onClose, service }: ProductDetailModalProps) {
+  const navigate = useNavigate();
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
   if (!product) return null;
 
   const imageUrl = product.featuredMedia?.preview?.image?.url ||
@@ -83,6 +111,28 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
 
   const variant = product.variants.edges[0]?.node;
   const sku = variant?.sku || 'No SKU';
+
+  const handleOptimizeNow = async () => {
+    try {
+      setIsOptimizing(true);
+      
+      const payload = {
+        serviceName: service,
+        productIds: [product.id]
+      };
+
+      await postApi(ApiConfig.storeProduct, payload);
+      
+      // Close the modal and navigate to optimization page
+      onClose();
+      navigate(`/${service}-optimization`);
+      
+    } catch (error) {
+      console.error('Error storing product for optimization:', error);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
 
   // Function to render content based on service type
   const renderServiceContent = () => {
@@ -407,18 +457,18 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-[#6b6862]">Meta Title</h3>
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-[#6b6862]">
-                        {product.seo.title?.length || 0}/70 characters
+                        {product.seo?.title?.length || 0}/70 characters
                       </span>
                     </div>
 
                     <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
                       <p className="text-[#1a1917] break-words">
-                        {product.seo.title || 'No meta title available'}
+                        {product.seo?.title || 'No meta title available'}
                       </p>
                     </div>
 
                     {/* Character count warning */}
-                    {(product.seo.title?.length || 0) > 70 && (
+                    {(product.seo?.title?.length || 0) > 70 && (
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <span className="text-amber-600 font-bold">⚠️</span>
@@ -427,7 +477,7 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                               Meta title exceeds recommended limit
                             </p>
                             <p className="text-xs text-amber-700 mt-1">
-                              Your meta title is {(product.seo.title?.length || 0) - 70} characters over the optimal 70 character limit.
+                              Your meta title is {(product.seo?.title?.length || 0) - 70} characters over the optimal 70 character limit.
                               Search engines may truncate longer titles in search results.
                             </p>
                           </div>
@@ -435,12 +485,12 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                       </div>
                     )}
 
-                    {(product.seo.title?.length || 0) < 30 && (product.seo.title?.length || 0) > 0 && (
+                    {(product.seo?.title?.length || 0) < 30 && (product.seo?.title?.length || 0) > 0 && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <span className="text-blue-600">ℹ️</span>
                           <div>
-                            <p className="text-xs font-medium text-blue-800">
+                            <p className="text-xs font-medium text-蓝色-800">
                               Meta title is shorter than recommended
                             </p>
                             <p className="text-xs text-blue-700 mt-1">
@@ -456,13 +506,13 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                       <p className="text-xs font-medium text-blue-800 mb-2">Google Search Preview:</p>
                       <div className="bg-white rounded-lg p-3 border border-blue-100">
                         <p className="text-[#1a0dab] text-lg font-medium font-sans line-clamp-1">
-                          {product.seo.title || 'Product Title'}
+                          {product.seo?.title || 'Product Title'}
                         </p>
                         <p className="text-[#006621] text-sm font-sans mt-1">
                           {window.location.origin}/products/{product.handle}
                         </p>
                         <p className="text-[#545454] text-sm font-sans mt-1 line-clamp-2">
-                          {product.seo.description?.substring(0, 160) || 'Product description will appear here...'}
+                          {product.seo?.description?.substring(0, 160) || 'Product description will appear here...'}
                         </p>
                       </div>
                     </div>
@@ -475,18 +525,18 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-[#6b6862]">Meta Description</h3>
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-[#6b6862]">
-                        {(product.seo.description?.length || 0)}/160 characters
+                        {(product.seo?.description?.length || 0)}/160 characters
                       </span>
                     </div>
 
                     <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
                       <p className="text-[#1a1917] break-words">
-                        {product.seo.description || 'No meta description available'}
+                        {product.seo?.description || 'No meta description available'}
                       </p>
                     </div>
 
                     {/* Character count warning */}
-                    {(product.seo.description?.length || 0) > 160 && (
+                    {(product.seo?.description?.length || 0) > 160 && (
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <span className="text-amber-600 font-bold">⚠️</span>
@@ -495,25 +545,15 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                               Meta description exceeds recommended limit
                             </p>
                             <p className="text-xs text-amber-700 mt-1">
-                              Your meta description is {(product.seo.description?.length || 0) - 160} characters over the optimal 160 character limit.
+                              Your meta description is {(product.seo?.description?.length || 0) - 160} characters over the optimal 160 character limit.
                               Search engines may truncate longer descriptions in search results.
                             </p>
-                            {/* <Button 
-              variant="link" 
-              className="text-xs text-amber-700 underline p-0 h-auto mt-2"
-              onClick={() => {
-                // You can add optimization logic here
-                console.log('Optimize description');
-              }}
-            >
-              Optimize to 160 characters →
-            </Button> */}
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {(product.seo.description?.length || 0) < 120 && (product.seo.description?.length || 0) > 0 && (
+                    {(product.seo?.description?.length || 0) < 120 && (product.seo?.description?.length || 0) > 0 && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div className="flex items-start gap-2">
                           <span className="text-blue-600">ℹ️</span>
@@ -534,14 +574,14 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
                       <p className="text-xs font-medium text-blue-800 mb-2">Google Search Preview:</p>
                       <div className="bg-white rounded-lg p-3 border border-blue-100">
                         <p className="text-[#1a0dab] text-lg font-medium font-sans line-clamp-1">
-                          {product.seo.title || 'Product Title'}
+                          {product.seo?.title || 'Product Title'}
                         </p>
                         <p className="text-[#006621] text-sm font-sans mt-1">
                           {window.location.origin}/products/{product.handle}
                         </p>
                         <p className="text-[#545454] text-sm font-sans mt-1 line-clamp-2">
-                          {product.seo.description?.substring(0, 160) || 'Product description will appear here...'}
-                          {(product.seo.description?.length || 0) > 160 ? '...' : ''}
+                          {product.seo?.description?.substring(0, 160) || 'Product description will appear here...'}
+                          {(product.seo?.description?.length || 0) > 160 ? '...' : ''}
                         </p>
                       </div>
                     </div>
@@ -719,7 +759,23 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
         <DialogHeader className="border-b border-[#e2e0db] pb-4">
           <DialogTitle className="text-xl font-bold text-[#1a1917] flex items-center justify-between">
             <span>Product Details</span>
-
+            <Button
+              onClick={handleOptimizeNow}
+              disabled={isOptimizing}
+              className="bg-[#95BF46] hover:bg-[#c1f85b] text-white rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2"
+            >
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Optimize {serviceTitles[service]}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 

@@ -44,6 +44,10 @@ const ApiConfig = {
   priceApply:`${BASE_URL}/pricing/apply`,
 
 
+  // revert funtion
+  getRevertOptimizations:`${BASE_URL}/reviert`,
+  saveRevertOptimizations:`${BASE_URL}/reviert/save`
+
 };
 
 export default ApiConfig;

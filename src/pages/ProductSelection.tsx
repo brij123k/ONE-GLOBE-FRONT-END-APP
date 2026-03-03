@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getApi, postApi } from "@/services/apiService";
 import ApiConfig from "@/services/apiConfig";
+import { RevertOptimizationsModal } from "@/components/RevertOptimizationsModal";
 import {
   Search,
   ArrowRight,
@@ -25,6 +26,10 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  MousePointer,
+  Eye,
+  CheckCircle,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -201,7 +206,7 @@ export default function ProductSelection() {
   const [totalPages, setTotalPages] = useState(0)
   const [allSelection, setAllSelection] = useState(false)
   // Filter state
-
+const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
   const [stockMin, setStockMin] = useState<string>('');
@@ -352,7 +357,6 @@ export default function ProductSelection() {
       setPageInfo(response.pageInfo);
       setTotalPages(response.totalPages)
       setTotalFilteredCount(response.totalCount || 0);
-      // You might want to get total count from response if available
       // setTotalFilteredCount(response.totalCount || response.products.length);
 
       // Update cursors for pagination
@@ -923,31 +927,42 @@ export default function ProductSelection() {
         <div className="p-7">
           {/* Page Header */}
           <h1 className="text-[32px] font-bold text-[#95BF46]">{serviceTitles[service]}</h1>
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-[22px] font-bold text-[#1a1917]">Select Products</h1>
-              <p className="text-[13.5px] text-[#6b6862] mt-1">
-                Choose products to optimize with {serviceTitles[service] || "AI"}
-              </p>
-            </div>
-            <Button
-              onClick={handleContinue}
-              disabled={selectedProducts.length === 0 || isProcessingSelection}
-              className="bg-[#95BF46] hover:bg-[#c1f85b] text-white rounded-lg px-5 py-2.5 text-sm font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
-            >
-              {isProcessingSelection ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Continue to Optimization
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </Button>
-          </div>
+         <div className="flex items-start justify-between mb-6">
+  <div>
+    <h1 className="text-[22px] font-bold text-[#1a1917]">Select Products</h1>
+    <p className="text-[13.5px] text-[#6b6862] mt-1">
+      Choose products to optimize with {serviceTitles[service] || "AI"}
+    </p>
+  </div>
+  <div className="flex items-center gap-3">
+      <Button
+        onClick={() => setIsRevertModalOpen(true)}
+        variant="outline"
+        className="border-[#e2e0db] text-[#6b6862] hover:border-[#95BF46] hover:text-[#95BF46] rounded-lg px-5 py-2.5 text-sm font-semibold flex items-center gap-2"
+      >
+        <RotateCcw className="w-4 h-4" />
+        Revert Last Optimizations
+      </Button>
+    
+    <Button
+      onClick={handleContinue}
+      disabled={selectedProducts.length === 0 || isProcessingSelection}
+      className="bg-[#95BF46] hover:bg-[#c1f85b] text-white rounded-lg px-5 py-2.5 text-sm font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
+    >
+      {isProcessingSelection ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        <>
+          Continue to Optimization
+          <ArrowRight className="w-4 h-4" />
+        </>
+      )}
+    </Button>
+  </div>
+</div>
 
           {/* Filter Panel */}
           <div className="bg-white border border-[#e2e0db] rounded-xl p-5 mb-4">
@@ -1886,134 +1901,213 @@ export default function ProductSelection() {
 
                 {/* Products */}
                 {viewMode === "list" ? (
-                  <div className="divide-y divide-[#e2e0db]">
-                    {products.map((product, index) => {
-                      const isSelected = selectedProducts.includes(product.id);
-                      const variant = product.variants.edges[0]?.node;
-                      const sku = variant?.sku || 'No SKU';
-                      const imageUrl = product.featuredMedia?.preview?.image?.url ||
-                        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop';
-                      const price = formatPrice(
-                        product.priceRangeV2.minVariantPrice.amount,
-                        product.priceRangeV2.minVariantPrice.currencyCode
-                      );
-                      const collection = collections.find(c => c.id === product.category?.id);
+  <div className="divide-y divide-[#e2e0db]">
+    {products.map((product, index) => {
+      const isSelected = selectedProducts.includes(product.id);
+      const variant = product.variants.edges[0]?.node;
+      const sku = variant?.sku || 'No SKU';
+      const imageUrl = product.featuredMedia?.preview?.image?.url ||
+        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop';
+      const price = formatPrice(
+        product.priceRangeV2.minVariantPrice.amount,
+        product.priceRangeV2.minVariantPrice.currencyCode
+      );
+      const collection = collections.find(c => c.id === product.category?.id);
 
-                      return (
-                        <div
-                          key={product.id}
-                          onClick={(e) => handleProductClick(product, e)}
-                          className={cn(
-                            // Base classes
-                            "grid items-center px-5 py-3 cursor-pointer transition-all hover:bg-[#f5f4f1]",
+      return (
+        <div
+          key={product.id}
+          onClick={(e) => handleProductClick(product, e)}
+          className={cn(
+            // Base classes
+            "group grid items-center px-5 py-3 cursor-pointer transition-all relative",
+            
+            // Add visual feedback for clickability
+            "hover:bg-[#f5f4f1] hover:shadow-sm active:bg-[#e8e5de]",
 
-                            // Conditional grid columns based on service
-                            serviceTitles[service] === 'Price Optimization'
-                              ? "grid-cols-[40px_56px_1fr_100px_100px_110px]"
-                              : "grid-cols-[40px_56px_1fr_100px_110px]",
+            // Add subtle indicator that it's clickable
+            "after:content-[''] after:absolute after:right-4 after:top-1/2 after:-translate-y-1/2",
+            "after:w-4 after:h-4 after:bg-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%239E9B95\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 18l6-6-6-6\"/></svg>')]",
+            "after:bg-contain after:bg-no-repeat after:opacity-0 group-hover:after:opacity-100 after:transition-opacity",
 
-                            // Selected state
-                            isSelected && "bg-[#ede9ff] hover:bg-[#ede9ff]"
-                          )}
-                        >
-                          <div className="checkbox-container" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleProduct(product.id)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46]"
-                            />
-                          </div>
-                          <div>
-                            <img
-                              src={imageUrl}
-                              alt={product.title}
-                              className="w-10 h-10 rounded-lg object-cover bg-[#f0ede8]"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-[13.5px] font-medium text-[#1a1917] truncate max-w-[380px]">
-                              {product.title}
-                            </div>
-                            <div className="text-[12px] text-[#9e9b95] mt-0.5">
-                              {sku} • {product.productType}
-                            </div>
-                            {collection && (
-                              <span className="inline-block bg-[#f0ede8] text-[#6b6862] text-[11px] font-medium px-2 py-0.5 rounded mt-1">
-                                {collection.title}
-                              </span>
-                            )}
-                          </div>
+            // Conditional grid columns based on service
+            serviceTitles[service] === 'Price Optimization'
+              ? "grid-cols-[40px_56px_1fr_100px_100px_110px_24px]"
+              : "grid-cols-[40px_56px_1fr_100px_110px_24px]",
 
-                          {serviceTitles[service] == 'Price Optimization' && (
-                            <div className="font-mono font-semibold text-[13.5px]">
-                              {price}
-                            </div>)}
-                          <div className="text-[13px] text-[#6b6862]">
-                            {product.totalInventory} in stock
-                          </div>
-                          <div>
-                            <span className={cn(
-                              "inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold",
-                              getStatusBadgeClass(product.status)
-                            )}>
-                              {product.status.toLowerCase()}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
-                    {products.map((product) => {
-                      const isSelected = selectedProducts.includes(product.id);
-                      const imageUrl = product.featuredMedia?.preview?.image?.url ||
-                        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop';
-                      const price = formatPrice(
-                        product.priceRangeV2.minVariantPrice.amount,
-                        product.priceRangeV2.minVariantPrice.currencyCode
-                      );
+            // Selected state
+            isSelected && "bg-[#ede9ff] hover:bg-[#ede9ff] border-l-4 border-l-[#95BF46]"
+          )}
+        >
+          <div className="checkbox-container relative z-10" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleProduct(product.id)}
+              className={cn(
+                "h-4 w-4 border-[#c8c5be] transition-all",
+                "data-[state=checked]:bg-[#95BF46] data-[state=checked]:border-[#95BF46]",
+                "hover:border-[#95BF46]"
+              )}
+            />
+          </div>
+          
+          <div className="relative z-10 transition-transform group-hover:scale-[1.02] group-hover:shadow-sm rounded-lg overflow-hidden">
+            <img
+              src={imageUrl}
+              alt={product.title}
+              className="w-10 h-10 rounded-lg object-cover bg-[#f0ede8]"
+            />
+          </div>
+          
+          <div className="min-w-0 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="text-[13.5px] font-medium text-[#1a1917] truncate max-w-[380px] group-hover:text-[#95BF46] transition-colors">
+                {product.title}
+              </div>
+              {/* Quick view tooltip on hover */}
+              <span className="text-[10px] text-[#9e9b95] opacity-0 group-hover:opacity-100 transition-opacity">
+                click to view
+              </span>
+            </div>
+            <div className="text-[12px] text-[#9e9b95] mt-0.5">
+              {sku} • {product.productType}
+            </div>
+            {collection && (
+              <span className="inline-block bg-[#f0ede8] text-[#6b6862] text-[11px] font-medium px-2 py-0.5 rounded mt-1 group-hover:bg-[#e0dbd4] transition-colors">
+                {collection.title}
+              </span>
+            )}
+          </div>
 
-                      return (
-                        <div
-                          key={product.id}
-                          onClick={(e) => handleProductClick(product, e)}
-                          className={cn(
-                            "border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md",
-                            isSelected
-                              ? "border-[#95BF46] bg-[#ede9ff]"
-                              : "border-[#e2e0db] hover:border-[#95BF46]"
-                          )}
-                        >
-                          <div className="flex items-start gap-3" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleProduct(product.id)}
-                              className="h-4 w-4 border-[#c8c5be] data-[state=checked]:bg-[#95BF46]"
-                            />
-                            <img
-                              src={imageUrl}
-                              alt={product.title}
-                              className="w-16 h-16 rounded-lg object-cover"
-                            />
-                          </div>
-                          <h4 className="font-medium text-[#1a1917] mt-3 line-clamp-2 text-sm">
-                            {product.title}
-                          </h4>
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="font-bold text-[#1a1917]">{price}</span>
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-full text-xs font-semibold",
-                              getStatusBadgeClass(product.status)
-                            )}>
-                              {product.status.toLowerCase()}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+          {serviceTitles[service] == 'Price Optimization' && (
+            <div className="font-mono font-semibold text-[13.5px] relative z-10 group-hover:scale-105 transition-transform">
+              {price}
+            </div>
+          )}
+          
+          <div className="text-[13px] text-[#6b6862] relative z-10">
+            {product.totalInventory} in stock
+          </div>
+          
+          <div className="relative z-10">
+            <span className={cn(
+              "inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold transition-all",
+              getStatusBadgeClass(product.status),
+              "group-hover:shadow-sm"
+            )}>
+              {product.status.toLowerCase()}
+            </span>
+          </div>
+
+          {/* Empty div for the arrow column */}
+          <div></div>
+        </div>
+      );
+    })}
+  </div>
+) : (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-5">
+    {products.map((product) => {
+      const isSelected = selectedProducts.includes(product.id);
+      const imageUrl = product.featuredMedia?.preview?.image?.url ||
+        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop';
+      const price = formatPrice(
+        product.priceRangeV2.minVariantPrice.amount,
+        product.priceRangeV2.minVariantPrice.currencyCode
+      );
+
+      return (
+        <div
+          key={product.id}
+          onClick={(e) => handleProductClick(product, e)}
+          className={cn(
+            "group border rounded-lg p-4 cursor-pointer transition-all relative overflow-hidden",
+            isSelected
+              ? "border-[#95BF46] bg-[#ede9ff] ring-2 ring-[#95BF46] ring-opacity-20"
+              : "border-[#e2e0db] hover:border-[#95BF46] hover:shadow-lg hover:-translate-y-1",
+            "active:translate-y-0 active:shadow-md"
+          )}
+        >
+          {/* Selected indicator */}
+          {isSelected && (
+            <div className="absolute top-2 right-2 w-5 h-5 bg-[#95BF46] rounded-full flex items-center justify-center">
+              <CheckCircle className="w-3 h-3 text-white" />
+            </div>
+          )}
+
+          {/* Hover overlay indicator */}
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-t from-[#95BF46]/5 to-transparent opacity-0 transition-opacity",
+            "group-hover:opacity-100"
+          )} />
+
+          <div className="flex items-start gap-3 relative z-10" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleProduct(product.id)}
+              className={cn(
+                "h-4 w-4 border-[#c8c5be] transition-all",
+                "data-[state=checked]:bg-[#95BF46] data-[state=checked]:border-[#95BF46]",
+                "hover:border-[#95BF46]"
+              )}
+            />
+            <div className="relative overflow-hidden rounded-lg group-hover:shadow-md transition-shadow">
+              <img
+                src={imageUrl}
+                alt={product.title}
+                className="w-16 h-16 rounded-lg object-cover transition-transform group-hover:scale-110"
+              />
+              {/* Quick view overlay */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Eye className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative z-10">
+            <h4 className="font-medium text-[#1a1917] mt-3 line-clamp-2 text-sm group-hover:text-[#95BF46] transition-colors">
+              {product.title}
+            </h4>
+            
+            {/* SKU display for card view */}
+            <p className="text-xs text-[#9e9b95] mt-1">
+              {product.variants.edges[0]?.node?.sku || 'No SKU'}
+            </p>
+          </div>
+          
+          <div className="flex items-center justify-between mt-2 relative z-10">
+            <span className="font-bold text-[#1a1917] group-hover:scale-105 transition-transform">
+              {price}
+            </span>
+            <span className={cn(
+              "px-2 py-0.5 rounded-full text-xs font-semibold transition-all",
+              getStatusBadgeClass(product.status),
+              "group-hover:shadow-sm"
+            )}>
+              {product.status.toLowerCase()}
+            </span>
+          </div>
+
+          {/* Stock indicator for card view */}
+          <div className="mt-2 text-xs text-[#6b6862] flex items-center gap-1 relative z-10">
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              product.totalInventory > 10 ? "bg-green-500" : 
+              product.totalInventory > 0 ? "bg-yellow-500" : "bg-red-500"
+            )} />
+            {product.totalInventory} in stock
+          </div>
+
+          {/* Click hint for card view */}
+          <div className="mt-2 text-[10px] text-[#9e9b95] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
+            <MousePointer className="w-3 h-3" />
+            <span>Click for details</span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
 
                 {/* Empty State */}
                 {products.length === 0 && (
@@ -2035,62 +2129,107 @@ export default function ProductSelection() {
       </div>
 
       {/* Floating Selection Bar */}
-      <div
-        className={cn(
-          "fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1917] text-white rounded-xl px-5 py-3.5 flex items-center gap-5 shadow-2xl transition-all duration-300 z-50",
-          selectedProducts.length > 0 ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-5 pointer-events-none"
-        )}
-      >
-        <div className="flex items-center gap-1">
-          <span className="text-sm font-semibold">
-            {allSelection ? (
-              <>
-                {totalFilteredCount.toLocaleString()}+ selected
-              </>
-            ) : (
-              <>
-                {selectedProducts.length} selected
-              </>
-            )}
-          </span>
+<div
+  className={cn(
+    "fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1917] text-white rounded-xl px-5 py-3.5 flex items-center gap-5 shadow-2xl transition-all duration-300 z-50",
+    selectedProducts.length > 0 ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-5 pointer-events-none"
+  )}
+>
+  <div className="flex items-center gap-1">
+    <span className="text-sm font-semibold">
+      {allSelection ? (
+        <>
+          {totalFilteredCount.toLocaleString()}+ selected
+        </>
+      ) : (
+        <>
+          {selectedProducts.length} selected
+        </>
+      )}
+    </span>
+    <span className="text-sm text-white/60"> • Ready for {serviceTitles[service]}</span>
+  </div>
+  
+  <div className="flex items-center gap-2">
+    {/* Revert Last Optimizations Button */}
+    <button
+      onClick={() => setIsRevertModalOpen(true)}
+      className="flex items-center gap-1.5 bg-transparent hover:bg-white/10 rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-white/20 hover:border-white/40"
+    >
+      <RotateCcw className="w-4 h-4" />
+      Revert Last
+    </button>
 
-          <span className="text-sm text-white/60"> • Ready for {serviceTitles[service]}</span>
-        </div>
-        <button
-          onClick={handleContinue}
-          disabled={isProcessingSelection}
-          className="flex items-center gap-1.5 bg-[#95BF46] hover:bg-[#4f38d4] rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
-        >
-          {isProcessingSelection ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              Continue to Optimization
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
-        <button
-          onClick={() => {
-            setSelectedProducts([]);
-            setSelectAllOnPage(false);
-            setSelectAllFiltered(false);
-            setAllSelection(false)
-          }}
-          className="text-sm text-white/50 hover:text-white transition-colors"
-        >
-          Clear
-        </button>
-      </div>
+    <button
+      onClick={handleContinue}
+      disabled={isProcessingSelection}
+      className="flex items-center gap-1.5 bg-[#95BF46] hover:bg-[#c1f85c] rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
+    >
+      {isProcessingSelection ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        <>
+          Continue
+          <ArrowRight className="w-4 h-4" />
+        </>
+      )}
+    </button>
+    
+    <button
+      onClick={() => {
+        setSelectedProducts([]);
+        setSelectAllOnPage(false);
+        setSelectAllFiltered(false);
+        setAllSelection(false)
+      }}
+      className="text-sm text-white/50 hover:text-white transition-colors"
+    >
+      Clear
+    </button>
+  </div>
+</div>
       <ProductDetailModal
         product={selectedProductForModal}
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
         service={service}
       />
+      {/* Revert Optimizations Modal */}
+<RevertOptimizationsModal
+  isOpen={isRevertModalOpen}
+  onClose={() => {setIsRevertModalOpen(false)
+    fetchProducts()
+  }}
+  serviceName={service}
+  productIds={
+  !allSelection && selectedProducts.length > 0
+    ? selectedProducts
+    : undefined
+}
+  filters={allSelection ? {
+    status: filters.status !== 'all' ? filters.status : undefined,
+    collections: filters.collections.length > 0 ? filters.collections : undefined,
+    vendors: filters.vendors.length > 0 ? filters.vendors : undefined,
+    productTypes: filters.productTypes.length > 0 ? filters.productTypes : undefined,
+    tags: filters.tags.length > 0 ? filters.tags : undefined,
+    categories: filters.categories.length > 0 ? filters.categories : undefined,
+    createdAfter: filters.createdAfter,
+    publishedAfter: filters.publishedAfter,
+    updatedAfter: filters.updatedAfter,
+    searchField: filters.searchQuery ? filters.searchField : undefined,
+    searchQuery: filters.searchQuery || undefined,
+    priceMin: filters.priceMin,
+    priceMax: filters.priceMax,
+    stockMin: filters.stockMin,
+    stockMax: filters.stockMax,
+  } : undefined}
+  onRevertComplete={() => {
+    console.log('Revert completed');
+  }}
+/>
     </AppLayout>
   );
 }
