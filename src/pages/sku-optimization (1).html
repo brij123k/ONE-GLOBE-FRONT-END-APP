@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SKU Optimization</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #1a3faa;
+    --blue-dark: #122d82;
+    --blue-light: #e8eeff;
+    --blue-mid: #3b5bdb;
+    --accent: #6c47ff;
+    --green: #12b76a;
+    --red: #f04438;
+    --amber: #f59e0b;
+    --gray-900: #101828;
+    --gray-700: #344054;
+    --gray-500: #667085;
+    --gray-300: #d0d5dd;
+    --gray-100: #f2f4f7;
+    --gray-50: #f9fafb;
+    --white: #ffffff;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(16,24,40,.1), 0 1px 2px rgba(16,24,40,.06);
+    --shadow-md: 0 4px 8px -2px rgba(16,24,40,.1), 0 2px 4px -2px rgba(16,24,40,.06);
+    --shadow-lg: 0 12px 24px -4px rgba(16,24,40,.12), 0 4px 8px -2px rgba(16,24,40,.08);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f0f2f8;
+    color: var(--gray-900);
+    min-height: 100vh;
+    padding-bottom: 100px;
+  }
+
+  /* ── TOP NAV ── */
+  .topbar {
+    background: var(--white);
+    border-bottom: 1.5px solid var(--gray-300);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  .topbar-back {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600; color: var(--gray-500);
+    background: var(--white); cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .topbar-back:hover { border-color: var(--blue); color: var(--blue); }
+  .topbar-titles { flex: 1; }
+  .topbar-step { font-size: 10px; font-weight: 700; color: var(--gray-500); letter-spacing: .08em; text-transform: uppercase; }
+  .topbar-heading { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--gray-900); line-height: 1.2; }
+  .topbar-sub { font-size: 11.5px; color: var(--gray-500); }
+  .badge-products {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--blue-dark); color: #fff;
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 700;
+    box-shadow: 0 2px 8px rgba(26,63,170,.3);
+  }
+
+  /* ── PAGE WRAPPER ── */
+  .page { max-width: 1200px; margin: 0 auto; padding: 20px 20px 0; }
+
+  /* ── STATS GRID ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    background: var(--white);
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat-label { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--gray-900); line-height: 1; }
+  .stat-value span { font-size: 12px; font-weight: 500; color: var(--gray-500); }
+  .stat-note { font-size: 10.5px; color: var(--gray-500); margin-top: 4px; }
+  .stat-bar { height: 4px; background: var(--gray-100); border-radius: 99px; margin-top: 8px; overflow: hidden; }
+  .stat-fill { height: 100%; border-radius: 99px; }
+
+  /* ── MAIN LAYOUT ── */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 270px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--white);
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  /* ── TABS ── */
+  .tabs { display: flex; border-bottom: 1.5px solid var(--gray-300); padding: 0 16px; background: var(--white); }
+  .tab {
+    padding: 14px 16px;
+    font-size: 13px; font-weight: 600;
+    border-bottom: 2.5px solid transparent;
+    margin-bottom: -1.5px;
+    cursor: pointer; color: var(--gray-500);
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+    background: none; border-top: none; border-left: none; border-right: none;
+  }
+  .tab.active { color: var(--blue-dark); border-bottom-color: var(--blue-dark); font-weight: 700; }
+  .tab:hover:not(.active) { color: var(--blue-mid); }
+
+  /* ── TAB DESCRIPTION BAR ── */
+  .tab-desc { padding: 8px 16px; font-size: 11.5px; color: var(--gray-500); background: #eef2ff; border-bottom: 1.5px solid var(--gray-300); }
+
+  /* ── INFO BANNER ── */
+  .info-banner {
+    margin: 12px 16px;
+    background: #fffbeb;
+    border: 1.5px solid #fde68a;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px; color: #92400e; font-weight: 500;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .info-banner strong { font-weight: 700; }
+
+  /* ── SKU PREFIX SECTION ── */
+  .prefix-section { padding: 16px; border-bottom: 1.5px solid var(--gray-100); }
+  .prefix-label { font-size: 10.5px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+  .prefix-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 10.5px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .07em; }
+  .form-input {
+    padding: 8px 12px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 13px; color: var(--gray-900);
+    font-family: 'DM Sans', sans-serif;
+    outline: none; transition: border-color .15s;
+    background: var(--white);
+  }
+  .form-input:focus { border-color: var(--blue); }
+  .form-select {
+    padding: 8px 12px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 13px; color: var(--gray-900);
+    font-family: 'DM Sans', sans-serif;
+    outline: none; background: var(--white);
+    cursor: pointer; transition: border-color .15s;
+  }
+  .form-select:focus { border-color: var(--blue); }
+
+  .btn-generate {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    background: var(--blue); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, transform .1s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-generate:hover { background: var(--blue-dark); transform: translateY(-1px); }
+
+  /* ── PRODUCT TABLE ── */
+  .table-wrapper { overflow-x: auto; }
+  .table-head {
+    display: grid;
+    grid-template-columns: 44px 1fr 160px 120px 90px 80px;
+    gap: 10px;
+    padding: 8px 16px;
+    border-bottom: 1.5px solid var(--gray-300);
+    background: var(--gray-50);
+  }
+  .th { font-size: 10.5px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .07em; display: flex; align-items: center; }
+  .table-body { }
+  .table-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 160px 120px 90px 80px;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    align-items: center;
+    transition: background .1s;
+  }
+  .table-row:hover { background: var(--gray-50); }
+  .table-row:last-child { border-bottom: none; }
+
+  .product-img {
+    width: 36px; height: 36px;
+    border-radius: 8px; object-fit: cover;
+    border: 1px solid var(--gray-300);
+    background: var(--gray-100);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .product-title { font-size: 13px; font-weight: 600; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-id { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+  .sku-current {
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    background: var(--gray-100); border: 1.5px solid var(--gray-300);
+    border-radius: 6px; padding: 4px 10px;
+    color: var(--gray-700); font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sku-new-input {
+    padding: 5px 10px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 7px;
+    font-size: 12.5px; font-weight: 600;
+    color: var(--blue-dark); font-family: 'DM Sans', sans-serif;
+    outline: none; width: 100%;
+    transition: border-color .15s, background .15s;
+  }
+  .sku-new-input:focus { border-color: var(--blue); background: #eef2ff; }
+  .sku-new-input.generated { border-color: var(--green); background: #ecfdf5; color: #065f46; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; font-weight: 700;
+    padding: 3px 9px; border-radius: 99px;
+  }
+  .status-new { background: #ecfdf5; color: #065f46; }
+  .status-existing { background: #fff7ed; color: #92400e; }
+  .status-conflict { background: #fef2f2; color: #991b1b; }
+
+  .btn-optimize-single {
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 10px;
+    background: var(--blue); color: #fff;
+    border: none; border-radius: 7px;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-optimize-single:hover { background: var(--blue-dark); }
+
+  /* ── TABLE FOOTER ── */
+  .table-footer {
+    padding: 12px 16px;
+    border-top: 1.5px solid var(--gray-200);
+    background: var(--gray-50);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .product-count {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--white); border: 1.5px solid var(--gray-300);
+    border-radius: 8px; padding: 5px 12px;
+    font-size: 12.5px; font-weight: 600; color: var(--gray-700);
+  }
+  .btn-apply {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--accent) 100%);
+    color: #fff; border: none; border-radius: 10px;
+    font-size: 13.5px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(108,71,255,.35);
+    transition: transform .15s, box-shadow .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-apply:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(108,71,255,.45); }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel { display: flex; flex-direction: column; gap: 14px; }
+
+  .panel-card {
+    background: var(--white);
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1.5px solid var(--gray-100);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--blue-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .panel-title { font-family: 'Syne', sans-serif; font-size: 13.5px; font-weight: 700; color: var(--gray-900); }
+  .panel-subtitle { font-size: 11px; color: var(--gray-500); }
+  .panel-body { padding: 12px 14px; }
+
+  /* SKU Input List */
+  .sku-input-list { display: flex; flex-direction: column; gap: 6px; }
+  .sku-input-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sku-num { font-size: 10.5px; font-weight: 700; color: var(--gray-500); width: 16px; text-align: right; flex-shrink: 0; }
+  .sku-pill-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 7px;
+    font-size: 12px; font-weight: 600;
+    color: var(--blue-dark); font-family: 'DM Mono', monospace;
+    outline: none; transition: border-color .15s;
+  }
+  .sku-pill-input:focus { border-color: var(--blue); background: #eef2ff; }
+  .sku-delete { width: 24px; height: 24px; border: none; background: none; cursor: pointer; color: var(--gray-300); font-size: 16px; display: flex; align-items: center; justify-content: center; border-radius: 5px; transition: color .1s, background .1s; }
+  .sku-delete:hover { color: var(--red); background: #fef2f2; }
+
+  .btn-add-sku {
+    width: 100%; margin-top: 6px;
+    padding: 7px;
+    border: 1.5px dashed var(--blue);
+    background: none; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--blue);
+    cursor: pointer; transition: background .1s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-add-sku:hover { background: var(--blue-light); }
+
+  /* Store prefix tags */
+  .prefix-tags { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; }
+  .prefix-tag {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--gray-50); border: 1.5px solid var(--gray-200);
+    border-radius: 8px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .prefix-tag:hover, .prefix-tag.active { border-color: var(--blue); background: var(--blue-light); }
+  .prefix-tag-name { font-size: 12.5px; font-weight: 700; color: var(--gray-900); }
+  .prefix-tag-code { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--blue); background: #dde8ff; border-radius: 4px; padding: 2px 7px; font-weight: 600; }
+  .prefix-tag-count { font-size: 10.5px; color: var(--gray-500); }
+
+  /* ── FLOATING BAR ── */
+  .float-bar {
+    position: fixed; bottom: 24px;
+    left: 50%; transform: translateX(-50%);
+    background: #0f1b3d;
+    border-radius: 18px;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 16px 40px rgba(15,27,61,.45);
+    z-index: 50;
+    min-width: 520px;
+    animation: slideUp .4s cubic-bezier(.175,.885,.32,1.1);
+  }
+  @keyframes slideUp { from { opacity:0; transform: translateX(-50%) translateY(30px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+  .float-info { flex: 1; }
+  .float-title { font-size: 14px; font-weight: 700; color: #fff; }
+  .float-sub { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 2px; }
+  .btn-float {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 22px;
+    background: linear-gradient(135deg, #6c47ff, #3b5bdb);
+    color: #fff; border: none; border-radius: 12px;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(108,71,255,.45);
+    transition: transform .1s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-float:hover { transform: translateY(-1px); }
+  .btn-float-clear { background: none; border: none; color: rgba(255,255,255,.4); font-size: 13px; font-weight: 600; cursor: pointer; transition: color .1s; font-family: 'DM Sans', sans-serif; }
+  .btn-float-clear:hover { color: rgba(255,255,255,.8); }
+
+  /* ── POPUP OVERLAY ── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 28px;
+    width: 92%; max-width: 520px;
+    box-shadow: var(--shadow-lg);
+    animation: popIn .3s cubic-bezier(.175,.885,.32,1.1);
+  }
+  @keyframes popIn { from { opacity:0; transform: scale(.92) translateY(16px); } to { opacity:1; transform: scale(1) translateY(0); } }
+  .modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--gray-900); }
+  .modal-desc { font-size: 12.5px; color: var(--gray-500); margin-top: 3px; }
+  .modal-close { width: 32px; height: 32px; border: none; background: var(--gray-100); border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray-500); flex-shrink: 0; }
+  .modal-close:hover { background: var(--gray-300); }
+
+  .modal-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .modal-stat {
+    background: var(--gray-50); border: 1.5px solid var(--gray-200);
+    border-radius: 12px; padding: 14px; text-align: center;
+  }
+  .modal-stat-val { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: var(--gray-900); }
+  .modal-stat-lbl { font-size: 11.5px; color: var(--gray-500); margin-top: 3px; }
+
+  .modal-list { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; margin-bottom: 20px; }
+  .modal-row {
+    display: grid; grid-template-columns: 1fr 24px 1fr;
+    gap: 8px; align-items: center;
+    padding: 8px 12px; background: var(--gray-50);
+    border: 1.5px solid var(--gray-200); border-radius: 10px;
+    font-size: 12px;
+  }
+  .modal-old { color: var(--gray-500); font-family: 'DM Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .modal-arrow { color: var(--blue); font-size: 14px; text-align: center; }
+  .modal-new { color: var(--green); font-weight: 700; font-family: 'DM Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .modal-footer { display: flex; gap: 10px; }
+  .btn-cancel { flex: 1; padding: 11px; border: 1.5px solid var(--gray-300); background: none; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--gray-700); cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-cancel:hover { border-color: var(--gray-500); }
+  .btn-confirm { flex: 1.5; padding: 11px; background: linear-gradient(135deg, var(--green) 0%, #059669 100%); border: none; border-radius: 10px; font-size: 13.5px; font-weight: 700; color: #fff; cursor: pointer; box-shadow: 0 4px 14px rgba(18,183,106,.35); transition: transform .1s; font-family: 'DM Sans', sans-serif; }
+  .btn-confirm:hover { transform: translateY(-1px); }
+
+  /* success modal */
+  .success-icon { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #d1fae5, #a7f3d0); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 30px; }
+  .success-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; text-align: center; color: var(--gray-900); margin-bottom: 8px; }
+  .success-desc { font-size: 13px; text-align: center; color: var(--gray-500); line-height: 1.6; }
+
+  /* toggle switch */
+  .toggle { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--gray-300); border-radius: 99px; transition: background .2s; }
+  .toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .toggle input:checked + .toggle-slider { background: var(--blue); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+  /* chip row */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-top: 1.5px solid var(--gray-100); }
+  .chip { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; background: var(--blue-light); color: var(--blue-dark); border: 1.5px solid #c7d4ff; cursor: pointer; transition: background .1s; }
+  .chip:hover { background: #dde8ff; }
+  .chip.selected { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  svg.icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <button class="topbar-back" onclick="history.back()">
+    <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </button>
+  <div class="topbar-titles">
+    <div class="topbar-step">Step 1 of 2</div>
+    <div class="topbar-heading">SKU Optimization</div>
+    <div class="topbar-sub">Set, generate, and map product SKUs across your store</div>
+  </div>
+  <div class="badge-products">
+    <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
+    30 Products Selected
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Products Without SKU</div>
+      <div class="stat-value">18 <span>/ 30</span></div>
+      <div class="stat-note" style="color:#f59e0b;font-weight:600;">⚠ Missing SKUs</div>
+      <div class="stat-bar"><div class="stat-fill" style="width:60%;background:#f59e0b;"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Duplicate SKUs Found</div>
+      <div class="stat-value">3 <span>conflicts</span></div>
+      <div class="stat-note" style="color:#f04438;font-weight:600;">Needs resolution</div>
+      <div class="stat-bar"><div class="stat-fill" style="width:10%;background:#f04438;"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ready to Apply</div>
+      <div class="stat-value">9 <span>SKUs</span></div>
+      <div class="stat-note" style="color:#12b76a;font-weight:600;">✓ No conflicts</div>
+      <div class="stat-bar"><div class="stat-fill" style="width:30%;background:#12b76a;"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Time Saved</div>
+      <div class="stat-value">45 <span>min</span></div>
+      <div class="stat-note" style="color:#6c47ff;font-weight:600;">⚡ AI auto-generates</div>
+      <div class="stat-bar"><div class="stat-fill" style="width:75%;background:#6c47ff;"></div></div>
+    </div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+
+    <!-- LEFT CARD -->
+    <div class="card">
+      <!-- TABS -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(this,'vendor')">Vendor Optimization</button>
+        <button class="tab" onclick="switchTab(this,'generate')">Generate SKUs</button>
+        <button class="tab" onclick="switchTab(this,'existing')">Existing Products</button>
+      </div>
+
+      <!-- VENDOR TAB -->
+      <div id="tab-vendor">
+        <div class="tab-desc">
+          Set new product SKU format. If a SKU already exists, the old SKU store is preserved and mapped with the new SKU.
+        </div>
+
+        <div class="info-banner">
+          <svg class="icon" style="color:#d97706;flex-shrink:0;margin-top:1px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.5"/></svg>
+          <div><strong>How it works:</strong> New SKUs are generated using your prefix + sequential number. If the product already has a SKU, the old one is stored in the "Old SKU" field and the new one is applied.</div>
+        </div>
+
+        <!-- PREFIX SETTINGS -->
+        <div class="prefix-section">
+          <div class="prefix-label">SKU Prefix Configuration</div>
+          <div class="prefix-grid">
+            <div class="form-group">
+              <label class="form-label">Store Prefix</label>
+              <input class="form-input" id="prefixInput" value="HOA" placeholder="e.g. HOA, SKU, PROD" oninput="updatePreview()"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Starting Number</label>
+              <input class="form-input" id="startNum" type="number" value="0001" placeholder="0001" min="1" oninput="updatePreview()"/>
+            </div>
+            <button class="btn-generate" onclick="generateAllSKUs()">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              Generate All SKUs
+            </button>
+          </div>
+          <!-- Preview -->
+          <div style="margin-top:10px;padding:8px 12px;background:#eef2ff;border:1.5px solid #c7d4ff;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-size:11px;font-weight:700;color:#6c47ff;text-transform:uppercase;letter-spacing:.07em;">Preview:</span>
+            <span id="previewSku1" style="font-family:monospace;font-size:13px;font-weight:700;color:#1a3faa;background:#fff;border:1.5px solid #c7d4ff;padding:3px 10px;border-radius:6px;">HOA-0001</span>
+            <span id="previewSku2" style="font-family:monospace;font-size:13px;font-weight:700;color:#1a3faa;background:#fff;border:1.5px solid #c7d4ff;padding:3px 10px;border-radius:6px;">HOA-0002</span>
+            <span id="previewSku3" style="font-family:monospace;font-size:13px;font-weight:700;color:#1a3faa;background:#fff;border:1.5px solid #c7d4ff;padding:3px 10px;border-radius:6px;">HOA-0003</span>
+            <span style="font-size:11.5px;color:#6c47ff;font-weight:600;">… and so on</span>
+          </div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="table-wrapper">
+          <div class="table-head">
+            <div class="th"></div>
+            <div class="th">Product Title</div>
+            <div class="th">Current SKU</div>
+            <div class="th">New SKU</div>
+            <div class="th">Status</div>
+            <div class="th">Action</div>
+          </div>
+          <div class="table-body" id="productTable">
+            <!-- rows injected by JS -->
+          </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="table-footer">
+          <div class="product-count">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
+            <span id="productCountLabel">10 products selected</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-generate" onclick="generateAllSKUs()" style="background:#fff;color:var(--blue);border:1.5px solid var(--blue);box-shadow:none;">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              Regenerate
+            </button>
+            <button class="btn-apply" onclick="openApplyModal()">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Apply SKUs to Store
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- GENERATE TAB (hidden by default) -->
+      <div id="tab-generate" style="display:none;">
+        <div class="tab-desc">Bulk-generate SKUs using a pattern or import from a list.</div>
+        <div style="padding:40px;text-align:center;color:var(--gray-500);">
+          <div style="font-size:40px;margin-bottom:12px;">🔧</div>
+          <div style="font-size:14px;font-weight:600;">Bulk Generator coming soon</div>
+          <div style="font-size:12px;margin-top:4px;">Use the Vendor Optimization tab to generate SKUs now.</div>
+        </div>
+      </div>
+
+      <!-- EXISTING TAB (hidden by default) -->
+      <div id="tab-existing" style="display:none;">
+        <div class="tab-desc">View all products with their current SKU status.</div>
+        <div style="padding:40px;text-align:center;color:var(--gray-500);">
+          <div style="font-size:40px;margin-bottom:12px;">📋</div>
+          <div style="font-size:14px;font-weight:600;">Existing SKU list</div>
+          <div style="font-size:12px;margin-top:4px;">Shows all your current product SKUs and their mapping.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <!-- Store Prefix Panel -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div class="panel-icon">
+            <svg class="icon" style="color:var(--blue)" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div>
+            <div class="panel-title">Store Prefixes</div>
+            <div class="panel-subtitle">Click to use a prefix</div>
+          </div>
+        </div>
+        <div class="prefix-tags">
+          <div class="prefix-tag active" onclick="selectPrefix(this,'HOA')">
+            <div>
+              <div class="prefix-tag-name">House of Avana</div>
+              <div class="prefix-tag-count" style="margin-top:2px;">12 products</div>
+            </div>
+            <div class="prefix-tag-code">HOA</div>
+          </div>
+          <div class="prefix-tag" onclick="selectPrefix(this,'HOS')">
+            <div>
+              <div class="prefix-tag-name">HOA Sindhida</div>
+              <div class="prefix-tag-count" style="margin-top:2px;">9 products</div>
+            </div>
+            <div class="prefix-tag-code">HOS</div>
+          </div>
+          <div class="prefix-tag" onclick="selectPrefix(this,'FRT')">
+            <div>
+              <div class="prefix-tag-name">Fruits Store</div>
+              <div class="prefix-tag-count" style="margin-top:2px;">9 products</div>
+            </div>
+            <div class="prefix-tag-code">FRT</div>
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="chip selected" onclick="toggleChip(this)">Sequential</span>
+          <span class="chip" onclick="toggleChip(this)">With Dash</span>
+          <span class="chip" onclick="toggleChip(this)">4-digit pad</span>
+          <span class="chip" onclick="toggleChip(this)">6-digit pad</span>
+        </div>
+      </div>
+
+      <!-- SKU Input Panel -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div class="panel-icon">
+            <svg class="icon" style="color:var(--blue)" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </div>
+          <div>
+            <div class="panel-title">Manual SKU Input</div>
+            <div class="panel-subtitle">Enter SKUs manually</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="sku-input-list" id="skuInputList">
+            <div class="sku-input-row"><span class="sku-num">1</span><input class="sku-pill-input" value="HOA-0001" placeholder="e.g. HOA-0001"/><button class="sku-delete" onclick="removeSkuRow(this)">×</button></div>
+            <div class="sku-input-row"><span class="sku-num">2</span><input class="sku-pill-input" value="HOA-0002" placeholder="e.g. HOA-0002"/><button class="sku-delete" onclick="removeSkuRow(this)">×</button></div>
+            <div class="sku-input-row"><span class="sku-num">3</span><input class="sku-pill-input" value="HOA-0003" placeholder="e.g. HOA-0003"/><button class="sku-delete" onclick="removeSkuRow(this)">×</button></div>
+            <div class="sku-input-row"><span class="sku-num">4</span><input class="sku-pill-input" value="HOA-0004" placeholder="e.g. HOA-0004"/><button class="sku-delete" onclick="removeSkuRow(this)">×</button></div>
+          </div>
+          <button class="btn-add-sku" onclick="addSkuRow()">+ Add SKU</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- FLOATING BAR -->
+<div class="float-bar" id="floatBar">
+  <div class="float-info">
+    <div class="float-title">HOA Prefix Selected · SKUs Ready</div>
+    <div class="float-sub">30 products · 18 will get new SKUs · 3 conflicts to review</div>
+  </div>
+  <button class="btn-float" onclick="openApplyModal()">
+    Apply SKUs to Store
+    <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+  </button>
+  <button class="btn-float-clear" onclick="document.getElementById('floatBar').style.display='none'">Clear</button>
+</div>
+
+<!-- APPLY MODAL -->
+<div class="overlay" id="applyOverlay" onclick="closeIfBackdrop(event,'applyOverlay')">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Confirm SKU Application</div>
+        <div class="modal-desc">Review the changes before applying to your Shopify store</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('applyOverlay')">×</button>
+    </div>
+
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <div class="modal-stat-val" style="color:var(--green);">18</div>
+        <div class="modal-stat-lbl">New SKUs to Set</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val" style="color:var(--amber);">12</div>
+        <div class="modal-stat-lbl">Old SKUs Preserved</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">SKU Mapping Preview</div>
+    <div class="modal-list" id="modalList">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('applyOverlay')">Cancel</button>
+      <button class="btn-confirm" onclick="applyAll()">
+        ✓ Apply All SKUs
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="overlay" id="successOverlay">
+  <div class="modal" style="text-align:center;">
+    <div class="success-icon">✅</div>
+    <div class="success-title">SKUs Applied!</div>
+    <div class="success-desc">All 18 product SKUs have been successfully set in your Shopify store. Old SKUs have been preserved in the mapping.</div>
+    <div style="margin-top:16px;padding:12px 16px;background:#ecfdf5;border:1.5px solid #a7f3d0;border-radius:12px;font-size:12.5px;color:#065f46;font-weight:500;text-align:left;">
+      💡 <strong>Tip:</strong> Your old SKUs are stored and mapped. You can still use them for order matching or inventory tracking.
+    </div>
+    <div class="modal-footer" style="margin-top:20px;">
+      <button class="btn-cancel" onclick="closeModal('successOverlay')">Done</button>
+      <button class="btn-confirm" onclick="closeModal('successOverlay')">Optimize More ›</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── DATA ──
+  const emojis = ['👟','👜','🧴','🍎','🫖','🧢','🕶️','💍','📱','🧸','🎒','🌿'];
+  const products = [
+    { id:'P001', title:'Handcrafted Leather Crossbody Bag',       sku:'', color:'#f59e0b' },
+    { id:'P002', title:'Organic Aloe Vera Face Serum 30ml',        sku:'OLD-SKN-02', color:'#12b76a' },
+    { id:'P003', title:'Wireless Noise Cancelling Headphones',      sku:'', color:'#6c47ff' },
+    { id:'P004', title:'Bamboo Cutting Board Set – 3 Piece',        sku:'BCB-03', color:'#f04438' },
+    { id:'P005', title:'Sindhida Mango Pickle – 500g',              sku:'', color:'#f59e0b' },
+    { id:'P006', title:'Premium Cotton Kurta for Men',              sku:'', color:'#3b5bdb' },
+    { id:'P007', title:'Handmade Silver Jhumka Earrings',           sku:'SJE-007', color:'#12b76a' },
+    { id:'P008', title:'Eco Friendly Jute Shopping Bag',            sku:'', color:'#6c47ff' },
+    { id:'P009', title:'Kashmiri Saffron – Pure Grade A 2g',        sku:'', color:'#f59e0b' },
+    { id:'P010', title:'Ayurvedic Hair Oil – 200ml',                sku:'', color:'#f04438' },
+  ];
+
+  let generatedSkus = {};
+
+  function getPad(num) {
+    const n = parseInt(document.getElementById('startNum').value) + num;
+    return String(n).padStart(4, '0');
+  }
+
+  function getPrefix() {
+    return (document.getElementById('prefixInput').value || 'SKU').toUpperCase();
+  }
+
+  function updatePreview() {
+    const p = getPrefix();
+    const base = parseInt(document.getElementById('startNum').value) || 1;
+    document.getElementById('previewSku1').textContent = `${p}-${String(base).padStart(4,'0')}`;
+    document.getElementById('previewSku2').textContent = `${p}-${String(base+1).padStart(4,'0')}`;
+    document.getElementById('previewSku3').textContent = `${p}-${String(base+2).padStart(4,'0')}`;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('productTable');
+    tbody.innerHTML = '';
+    products.forEach((p, i) => {
+      const newSku = generatedSkus[p.id] || '';
+      const hasOld = p.sku !== '';
+      const status = !newSku ? 'pending' : hasOld ? 'existing' : 'new';
+      const statusHtml = {
+        pending: `<span class="status-badge" style="background:#f2f4f7;color:#667085;">— Pending</span>`,
+        new: `<span class="status-badge status-new">✓ New SKU</span>`,
+        existing: `<span class="status-badge status-existing">⟲ Old Mapped</span>`,
+      }[status];
+
+      const row = document.createElement('div');
+      row.className = 'table-row';
+      row.innerHTML = `
+        <div class="product-img" style="background:${p.color}22;font-size:18px;">${emojis[i % emojis.length]}</div>
+        <div>
+          <div class="product-title">${p.title}</div>
+          <div class="product-id">${p.id}</div>
+        </div>
+        <div class="sku-current">${p.sku || '—'}</div>
+        <input class="sku-new-input ${newSku ? 'generated' : ''}" value="${newSku}" placeholder="Generate or type…" data-pid="${p.id}" oninput="manualSkuEdit(this)"/>
+        ${statusHtml}
+        <button class="btn-optimize-single" onclick="generateSingle('${p.id}',${i})">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          Gen
+        </button>`;
+      tbody.appendChild(row);
+    });
+  }
+
+  function generateSingle(pid, idx) {
+    const p = getPrefix();
+    const base = parseInt(document.getElementById('startNum').value) || 1;
+    generatedSkus[pid] = `${p}-${String(base + idx).padStart(4,'0')}`;
+    renderTable();
+  }
+
+  function generateAllSKUs() {
+    const p = getPrefix();
+    const base = parseInt(document.getElementById('startNum').value) || 1;
+    products.forEach((prod, i) => {
+      generatedSkus[prod.id] = `${p}-${String(base + i).padStart(4,'0')}`;
+    });
+    renderTable();
+    // update float bar
+    document.getElementById('floatBar').style.display = '';
+    document.querySelector('.float-title').textContent = `${p} Prefix · ${products.length} SKUs Ready`;
+  }
+
+  function manualSkuEdit(el) {
+    generatedSkus[el.dataset.pid] = el.value;
+    el.classList.toggle('generated', el.value !== '');
+  }
+
+  function openApplyModal() {
+    const list = document.getElementById('modalList');
+    list.innerHTML = '';
+    products.forEach((p, i) => {
+      const nsku = generatedSkus[p.id] || '—';
+      const div = document.createElement('div');
+      div.className = 'modal-row';
+      div.innerHTML = `
+        <div class="modal-old">${p.sku || 'No SKU'}</div>
+        <div class="modal-arrow">→</div>
+        <div class="modal-new">${nsku}</div>`;
+      list.appendChild(div);
+    });
+    document.getElementById('applyOverlay').classList.add('open');
+  }
+
+  function applyAll() {
+    closeModal('applyOverlay');
+    setTimeout(() => {
+      document.getElementById('successOverlay').classList.add('open');
+    }, 300);
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function closeIfBackdrop(e, id) { if(e.target === e.currentTarget) closeModal(id); }
+
+  function switchTab(btn, tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    ['vendor','generate','existing'].forEach(t => {
+      document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
+    });
+  }
+
+  function selectPrefix(el, code) {
+    document.querySelectorAll('.prefix-tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('prefixInput').value = code;
+    updatePreview();
+  }
+
+  function toggleChip(el) { el.classList.toggle('selected'); }
+
+  function addSkuRow() {
+    const list = document.getElementById('skuInputList');
+    const n = list.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'sku-input-row';
+    div.innerHTML = `<span class="sku-num">${n}</span><input class="sku-pill-input" placeholder="e.g. HOA-00${String(n).padStart(2,'0')}"/><button class="sku-delete" onclick="removeSkuRow(this)">×</button>`;
+    list.appendChild(div);
+    div.querySelector('input').focus();
+  }
+
+  function removeSkuRow(btn) {
+    btn.closest('.sku-input-row').remove();
+    document.querySelectorAll('#skuInputList .sku-num').forEach((el, i) => el.textContent = i+1);
+  }
+
+  // init
+  updatePreview();
+  renderTable();
+</script>
+</body>
+</html>

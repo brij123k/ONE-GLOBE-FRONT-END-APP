@@ -1326,7 +1326,7 @@ export default function TitleOptimization() {
       </div>
 
       {/* ── FLOATING BAR ── */}
-      <div
+      {/* <div
         className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1a2e] rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-2xl z-50 transition-all duration-500 whitespace-nowrap min-w-[480px]
           ${floatBarVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-20 pointer-events-none"}`}
         style={{ transform: `translateX(-50%) translateY(${floatBarVisible ? "0" : "80px"})` }}
@@ -1344,7 +1344,7 @@ export default function TitleOptimization() {
         <button onClick={() => setFloatBarVisible(false)} className="text-white/40 hover:text-white/80 bg-transparent border-none text-[13px] font-semibold cursor-pointer transition-colors">
           Clear
         </button>
-      </div>
+      </div> */}
 
       {/* ── EXAMPLE MODAL ── */}
       {showExampleModal && exampleFormat && exampleFormatData && (

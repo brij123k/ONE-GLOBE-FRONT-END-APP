@@ -2,58 +2,22 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import {
-  Brain,
-  Eye,
-  Zap,
-  Sparkles,
-  TrendingUp,
-  Target,
-  BarChart3,
-  CheckCircle,
-  XCircle,
-  Clock,
-  RefreshCw,
-  Save,
-  Play,
-  Plus,
-  Filter,
-  Crown,
-  Rocket,
-  Stars,
-  Award,
-  Trophy,
-  RulerIcon,
-  Gem,
-  Tag,
-  FileText,
-  Search,
-  Globe,
+  Brain, Zap, Sparkles, TrendingUp, Target, CheckCircle,
+  RefreshCw, Save, Play, Plus, Crown, Award, Trophy,
+  RulerIcon, ArrowRight, ChevronLeft, Info, Package,
+  Search, Globe, BarChart3, FileText, Layers, Eye,
 } from "lucide-react";
 import { getApi, postApi } from "@/services/apiService";
 import ApiConfig from "@/services/apiConfig";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Product {
   _id: string;
@@ -73,26 +37,199 @@ interface OptimizationResult {
   image?: string;
 }
 
+interface MetaFormat {
+  id: number;
+  categoryName: string;
+  primaryElement: string;
+  secondaryElement: string;
+  thirdElement: string;
+  fourthElement: string;
+  tone: string;
+  brandFocused: boolean;
+  minCharacters: number;
+  maxCharacters: number;
+  mustIncludeKeywords: string[];
+  excludeKeywords: string[];
+}
+
+type TabType = "ai" | "existing" | "custom";
+
+// ─── Meta-Title specific elements — much richer than product title slots ──────
+// These match real SEO meta title patterns used by e-commerce pros
+
+const allMetaSlotElements = [
+  "Product Name",
+  "Primary Keyword",
+  "Secondary Keyword",
+  "Long-tail Keyword",
+  "Brand Name",
+  "Store Name",
+  "Call to Action",
+  "Key Benefit",
+  "USP (Unique Selling Point)",
+  "Price Signal",
+  "Trust Signal",
+  "Target Audience",
+  "Product Category",
+  "Material / Type",
+  "Use Case",
+  "Location / Origin",
+  "Urgency Signal",
+  "Seasonal Hook",
+  "Question Hook",
+  "Comparison Advantage",
+  "Shipping Signal",
+  "Award / Badge",
+  "Year / Edition",
+  "Quantity / Pack Size",
+];
+
+// For meta titles, Product Name OR Primary Keyword must appear
+const hasRequiredMetaElement = (fmt: MetaFormat): boolean =>
+  ["Product Name", "Primary Keyword"].some(req =>
+    fmt.primaryElement === req || fmt.secondaryElement === req ||
+    fmt.thirdElement === req || fmt.fourthElement === req
+  );
+
+const tones = [
+  "Professional", "Friendly & Casual", "Luxury & Premium", "Technical & Detailed",
+  "Conversational", "Urgent & Action-Oriented", "Educational", "Inspirational",
+  "Playful", "Authoritative",
+];
+
+// ─── Template config (icon + formulaTags + example) ───────────────────────────
+
+const templateConfig: Record<number, { icon: React.ReactNode; formulaTags: string[]; example: string }> = {
+  1: {
+    icon: <Globe className="w-4 h-4 text-green-700" />,
+    formulaTags: ["Primary Keyword", "Product Name", "Brand Name"],
+    example: "Buy Handmade Wooden Chair | Premium Furniture Store",
+  },
+  2: {
+    icon: <Target className="w-4 h-4 text-green-700" />,
+    formulaTags: ["Call to Action", "Product Name", "Key Benefit"],
+    example: "Shop Oak Dining Table — Free Delivery Included",
+  },
+  3: {
+    icon: <Search className="w-4 h-4 text-green-700" />,
+    formulaTags: ["Product Name", "Material / Type", "Use Case", "Brand Name"],
+    example: "Solid Oak Coffee Table | Rustic Style | Living Room | Artisan Co",
+  },
+  4: {
+    icon: <Crown className="w-4 h-4 text-green-700" />,
+    formulaTags: ["Trust Signal", "Product Name", "USP (Unique Selling Point)", "Brand Name"],
+    example: "Award-Winning Bamboo Basket | Ethically Sourced — Kenya Artisans",
+  },
+  5: {
+    icon: <Sparkles className="w-4 h-4 text-green-700" />,
+    formulaTags: ["Product Name", "Primary Keyword", "Target Audience", "Urgency Signal"],
+    example: "Boho Wool Rug | Handmade Rugs For Home | Limited Stock",
+  },
+};
+
+const defaultMetaFormats: MetaFormat[] = [
+  {
+    id: 1, categoryName: "SEO Standard",
+    primaryElement: "Primary Keyword", secondaryElement: "Product Name",
+    thirdElement: "Brand Name", fourthElement: "none",
+    tone: "Professional", brandFocused: true,
+    minCharacters: 50, maxCharacters: 60,
+    mustIncludeKeywords: [], excludeKeywords: [],
+  },
+  {
+    id: 2, categoryName: "Benefit + CTR Boost",
+    primaryElement: "Call to Action", secondaryElement: "Product Name",
+    thirdElement: "Key Benefit", fourthElement: "none",
+    tone: "Friendly & Casual", brandFocused: false,
+    minCharacters: 45, maxCharacters: 60,
+    mustIncludeKeywords: [], excludeKeywords: [],
+  },
+  {
+    id: 3, categoryName: "Keyword Rich",
+    primaryElement: "Product Name", secondaryElement: "Material / Type",
+    thirdElement: "Use Case", fourthElement: "Brand Name",
+    tone: "Professional", brandFocused: true,
+    minCharacters: 50, maxCharacters: 60,
+    mustIncludeKeywords: [], excludeKeywords: [],
+  },
+  {
+    id: 4, categoryName: "Trust & Authority",
+    primaryElement: "Trust Signal", secondaryElement: "Product Name",
+    thirdElement: "USP (Unique Selling Point)", fourthElement: "Brand Name",
+    tone: "Authoritative", brandFocused: true,
+    minCharacters: 50, maxCharacters: 60,
+    mustIncludeKeywords: [], excludeKeywords: [],
+  },
+  {
+    id: 5, categoryName: "Audience Targeted",
+    primaryElement: "Product Name", secondaryElement: "Primary Keyword",
+    thirdElement: "Target Audience", fourthElement: "Urgency Signal",
+    tone: "Conversational", brandFocused: false,
+    minCharacters: 45, maxCharacters: 60,
+    mustIncludeKeywords: [], excludeKeywords: [],
+  },
+];
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function MetaLengthBar({ length, max = 60 }: { length: number; max?: number }) {
+  const pct = Math.min(100, (length / max) * 100);
+  const color = length === 0 ? "#ef4444" : length < 30 ? "#f59e0b" : length > 60 ? "#ef4444" : "#16a34a";
+  return (
+    <div className="flex flex-col gap-1 min-w-[90px]">
+      <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-[10px] font-bold text-gray-400">{length} chars</span>
+    </div>
+  );
+}
+
+function MetaStatusBadge({ length }: { length: number }) {
+  if (length === 0) return <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">Empty</span>;
+  if (length < 30) return <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 whitespace-nowrap">Too Short</span>;
+  if (length > 60) return <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">Too Long</span>;
+  return <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap">Optimal</span>;
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function MetaTitleOptimization() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showProductsModal, setShowProductsModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("ai");
+  const [selectedFormat, setSelectedFormat] = useState<MetaFormat>(defaultMetaFormats[0]);
+  const [floatBarVisible, setFloatBarVisible] = useState(true);
+  const [showExampleModal, setShowExampleModal] = useState(false);
+  const [exampleFormatId, setExampleFormatId] = useState<number | null>(null);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
-  const [showAIOptionsModal, setShowAIOptionsModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResult[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
-  const [stats, setStats] = useState({
-    averageLength: 0,
-    seoScore: 0,
-    improvement: 0,
-    emptyTitles: 0,
+  const [stats, setStats] = useState({ averageLength: 0, seoScore: 0, improvement: 0, emptyTitles: 0 });
+  const [savedTemplateBanner, setSavedTemplateBanner] = useState<string | null>(null);
+  const [userTemplates, setUserTemplates] = useState<MetaFormat[]>([]);
+
+  // Custom Formula tab — own independent state (same as TitleOptimization pattern)
+  const [customFormula, setCustomFormula] = useState<MetaFormat>({
+    id: 9000,
+    categoryName: "My Custom Meta Formula",
+    primaryElement: "Product Name",
+    secondaryElement: "Primary Keyword",
+    thirdElement: "none",
+    fourthElement: "none",
+    tone: "Professional",
+    brandFocused: false,
+    minCharacters: 45,
+    maxCharacters: 60,
+    mustIncludeKeywords: [],
+    excludeKeywords: [],
   });
 
-  // Classic Rules State
+  // Classic rules — ALL original functionality
   const [classicRules, setClassicRules] = useState({
     copyTitleToMeta: false,
     prefix: { enabled: false, value: "" },
@@ -102,305 +239,196 @@ export default function MetaTitleOptimization() {
     truncate: { enabled: false, maxLength: 60, preserveWords: true },
   });
 
-  useEffect(() => {
-    fetchStoredProducts();
-  }, []);
+  // Build formula string from the 4 element slots — sent directly to API
+  const buildFormulaPattern = (fmt: MetaFormat): string => {
+    const parts = [
+      `{${fmt.primaryElement}}`,
+      `{${fmt.secondaryElement}}`,
+      fmt.thirdElement && fmt.thirdElement !== "none" ? `{${fmt.thirdElement}}` : null,
+      fmt.fourthElement && fmt.fourthElement !== "none" ? `{${fmt.fourthElement}}` : null,
+    ].filter(Boolean);
+    return parts.join(" + ");
+  };
+
+  const saveAsNewTemplate = (source: MetaFormat) => {
+    if (!hasRequiredMetaElement(source)) return;
+    const newId = 9000 + userTemplates.length + 1;
+    const name = source.categoryName.trim() || `My Template ${userTemplates.length + 1}`;
+    const saved: MetaFormat = { ...source, id: newId, categoryName: name };
+    setUserTemplates(prev => [...prev, saved]);
+    setSelectedFormat(saved);
+    setActiveTab("ai");
+    setFloatBarVisible(true);
+    setSavedTemplateBanner(`"${name}" added to your templates!`);
+    setTimeout(() => setSavedTemplateBanner(null), 3000);
+  };
+
+  useEffect(() => { fetchStoredProducts(); }, []);
 
   const fetchStoredProducts = async () => {
     try {
       setLoading(true);
-      const response = await getApi(ApiConfig.getStoredMetaTitileProduct);
-      const productsData = response || [];
-      setProducts(productsData);
-      
-      // Calculate initial stats
-      if (productsData.length > 0) {
-        const avgLength = Math.round(
-          productsData.reduce((sum: number, p: Product) => sum + (p.metaTitle?.length || 0), 0) / productsData.length
-        );
-        const emptyTitles = productsData.filter(p => !p.metaTitle || p.metaTitle.trim() === '').length;
-        
-        setStats(prev => ({
-          ...prev,
-          averageLength: avgLength,
-          emptyTitles: emptyTitles,
-          seoScore: calculateSeoScore(productsData),
-        }));
+      const data = (await getApi(ApiConfig.getStoredMetaTitileProduct)) || [];
+      setProducts(data);
+      if (data.length > 0) {
+        const avg = Math.round(data.reduce((s: number, p: Product) => s + (p.metaTitle?.length || 0), 0) / data.length);
+        const empty = data.filter((p: Product) => !p.metaTitle || p.metaTitle.trim() === "").length;
+        setStats(prev => ({ ...prev, averageLength: avg, emptyTitles: empty, seoScore: calcSeoScore(data) }));
       }
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  const calcSeoScore = (prods: Product[]): number => {
+    if (!prods.length) return 0;
+    let score = 0;
+    prods.forEach(p => {
+      const mt = p.metaTitle || "";
+      if (mt.length >= 50 && mt.length <= 60) score += 30;
+      else if (mt.length >= 40 && mt.length <= 70) score += 20;
+      else score += 10;
+      if (mt.trim()) score += 30;
+      if (p.title && mt.toLowerCase().includes(p.title.toLowerCase().substring(0, 20))) score += 20;
+      const words = mt.split(" ");
+      const unique = new Set(words.map(w => w.toLowerCase()));
+      if (words.length / (unique.size || 1) < 1.5) score += 20;
+    });
+    return Math.round(score / prods.length);
+  };
+
+  const buildPayload = (fmt: MetaFormat, productId: string, productTitle: string, apply: boolean) => ({
+    productId,
+    productTitle,
+    categoryName: fmt.categoryName,
+    primaryElement: fmt.primaryElement,
+    secondaryElement: fmt.secondaryElement,
+    thirdElement: fmt.thirdElement !== "none" ? fmt.thirdElement : "",
+    fourthElement: fmt.fourthElement !== "none" ? fmt.fourthElement : "",
+    formulaPattern: buildFormulaPattern(fmt),   // full formula sent directly to API
+    tone: fmt.tone,
+    brandFocused: fmt.brandFocused,
+    minCharacters: fmt.minCharacters,
+    maxCharacters: fmt.maxCharacters,
+    mustIncludeKeywords: fmt.mustIncludeKeywords.join(","),
+    excludeKeywords: fmt.excludeKeywords.join(","),
+    apply,
+  });
+
+  const handleAIOptimization = async (fmt: MetaFormat, applyNow = false) => {
+    if (!fmt || products.length === 0) return;
+    setShowProgressModal(true);
+    setProgress({ current: 0, total: products.length, status: "Starting AI optimization..." });
+    const results: OptimizationResult[] = [];
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      setProgress({ current: i + 1, total: products.length, status: `Optimizing: ${p.title}` });
+      try {
+        const res = await postApi(ApiConfig.aiMetaTitleOptimization, buildPayload(fmt, p.productId, p.title, applyNow));
+        if (applyNow && res.applied) {
+          results.push({ productId: p.productId, oldMetaTitle: res.oldMetaTitle || "(Empty)", newMetaTitle: res.newMetaTitle, characterCount: res.characterCount || 0, image: p.productImage });
+        } else if (!applyNow && res.newMetaTitle) {
+          results.push({ productId: p.productId, oldMetaTitle: res.oldMetaTitle || "(Empty)", newMetaTitle: res.newMetaTitle, characterCount: res.characterCount || res.newMetaTitle.length, image: p.productImage });
+        }
+        await new Promise(r => setTimeout(r, 500));
+      } catch {
+        results.push({ productId: p.productId, oldMetaTitle: p.metaTitle || "(Empty)", newMetaTitle: p.metaTitle || "(Empty)", characterCount: (p.metaTitle || "").length, image: p.productImage });
+      }
+    }
+    setOptimizationResults(results);
+    setShowProgressModal(false);
+    if (applyNow) {
+      const ok = results.filter(r => r.newMetaTitle !== r.oldMetaTitle).length;
+      setProgress({ current: ok, total: products.length, status: "completed" });
+      setShowSuccessModal(true);
+    } else {
+      calcComparisonStats(results);
+      setShowPreviewModal(true);
     }
   };
 
-  const calculateSeoScore = (products: Product[]): number => {
-    if (products.length === 0) return 0;
-    
-    let score = 0;
-    products.forEach(product => {
-      const metaTitle = product.metaTitle || '';
-      const title = product.title || '';
-      
-      // Score based on length (optimal: 50-60 characters)
-      if (metaTitle.length >= 50 && metaTitle.length <= 60) score += 30;
-      else if (metaTitle.length >= 40 && metaTitle.length <= 70) score += 20;
-      else score += 10;
-      
-      // Score for having meta title
-      if (metaTitle.trim()) score += 30;
-      
-      // Score for including product title
-      if (title && metaTitle.toLowerCase().includes(title.toLowerCase().substring(0, 20))) {
-        score += 20;
-      }
-      
-      // Score for no keyword stuffing
-      const words = metaTitle.split(' ');
-      const uniqueWords = new Set(words.map(w => w.toLowerCase()));
-      if (words.length / uniqueWords.size < 1.5) score += 20;
-    });
-    
-    return Math.round(score / products.length);
+  const handleSingleOptimize = async (product: Product) => {
+    setShowProgressModal(true);
+    setProgress({ current: 0, total: 1, status: `Optimizing: ${product.title}` });
+    try {
+      const res = await postApi(ApiConfig.aiMetaTitleOptimization, buildPayload(selectedFormat, product.productId, product.title, false));
+      if (res.newMetaTitle) {
+        setOptimizationResults([{ productId: product.productId, oldMetaTitle: product.metaTitle || "(Empty)", newMetaTitle: res.newMetaTitle, characterCount: res.newMetaTitle.length, image: product.productImage }]);
+        setProgress({ current: 1, total: 1, status: "Done" });
+        setShowProgressModal(false);
+        setShowPreviewModal(true);
+      } else { setShowProgressModal(false); }
+    } catch { setShowProgressModal(false); }
   };
 
   const handleClassicOptimization = async (previewMode = true) => {
     if (products.length === 0) return;
-
     setShowProgressModal(true);
-    setProgress({
-      current: 0,
-      total: products.length,
-      status: "Applying classic optimization rules..."
-    });
-
+    setProgress({ current: 0, total: products.length, status: "Applying classic rules..." });
     const results: OptimizationResult[] = [];
-
     for (let i = 0; i < products.length; i++) {
-      const product = products[i];
-      let newMetaTitle = product.metaTitle || '';
-
-      // Copy title to meta title if enabled
-      if (classicRules.copyTitleToMeta) {
-        newMetaTitle = product.title;
-      }
-
-      // Apply prefix
-      if (classicRules.prefix.enabled && classicRules.prefix.value) {
-        newMetaTitle = `${classicRules.prefix.value} ${newMetaTitle}`;
-      }
-
-      // Apply suffix
-      if (classicRules.suffix.enabled && classicRules.suffix.value) {
-        newMetaTitle = `${newMetaTitle} ${classicRules.suffix.value}`;
-      }
-
-      // Apply find & replace
-      if (classicRules.findReplace.enabled && classicRules.findReplace.find) {
-        const regex = new RegExp(classicRules.findReplace.find, 'gi');
-        newMetaTitle = newMetaTitle.replace(regex, classicRules.findReplace.replace);
-      }
-
-      // Apply find & remove
-      if (classicRules.findRemove.enabled && classicRules.findRemove.value) {
-        const regex = new RegExp(classicRules.findRemove.value, 'gi');
-        newMetaTitle = newMetaTitle.replace(regex, '');
-      }
-
-      // Apply truncation
-      if (classicRules.truncate.enabled && newMetaTitle.length > classicRules.truncate.maxLength) {
+      const p = products[i];
+      let newMeta = p.metaTitle || "";
+      if (classicRules.copyTitleToMeta) newMeta = p.title;
+      if (classicRules.prefix.enabled && classicRules.prefix.value) newMeta = `${classicRules.prefix.value} ${newMeta}`;
+      if (classicRules.suffix.enabled && classicRules.suffix.value) newMeta = `${newMeta} ${classicRules.suffix.value}`;
+      if (classicRules.findReplace.enabled && classicRules.findReplace.find) newMeta = newMeta.replace(new RegExp(classicRules.findReplace.find, "gi"), classicRules.findReplace.replace);
+      if (classicRules.findRemove.enabled && classicRules.findRemove.value) newMeta = newMeta.replace(new RegExp(classicRules.findRemove.value, "gi"), "");
+      if (classicRules.truncate.enabled && newMeta.length > classicRules.truncate.maxLength) {
         if (classicRules.truncate.preserveWords) {
-          // Find last space before limit
-          const truncated = newMetaTitle.substring(0, classicRules.truncate.maxLength);
-          const lastSpace = truncated.lastIndexOf(' ');
-          newMetaTitle = lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
-        } else {
-          newMetaTitle = newMetaTitle.substring(0, classicRules.truncate.maxLength);
-        }
+          const truncated = newMeta.substring(0, classicRules.truncate.maxLength);
+          const lastSpace = truncated.lastIndexOf(" ");
+          newMeta = lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated;
+        } else { newMeta = newMeta.substring(0, classicRules.truncate.maxLength); }
       }
-
-      // Clean up extra spaces
-      newMetaTitle = newMetaTitle.replace(/\s+/g, ' ').trim();
-
-      results.push({
-        productId: product.productId,
-        oldMetaTitle: product.metaTitle || '(Empty)',
-        newMetaTitle,
-        characterCount: newMetaTitle.length,
-        image: product.productImage
-      });
-
-      setProgress({
-        current: i + 1,
-        total: products.length,
-        status: `Processing: ${product.title}`
-      });
+      newMeta = newMeta.replace(/\s+/g, " ").trim();
+      results.push({ productId: p.productId, oldMetaTitle: p.metaTitle || "(Empty)", newMetaTitle: newMeta, characterCount: newMeta.length, image: p.productImage });
+      setProgress({ current: i + 1, total: products.length, status: `Processing: ${p.title}` });
     }
-
     setOptimizationResults(results);
     setShowProgressModal(false);
-
-    if (previewMode) {
-      calculateComparisonStats(results);
-      setShowPreviewModal(true);
-    } else {
-      await applyMetaTitleOptimizations(results);
-    }
+    if (previewMode) { calcComparisonStats(results); setShowPreviewModal(true); }
+    else await applyOptimizations(results);
   };
 
-  const handleAIOptimization = async (applyNow = false) => {
-    if (products.length === 0) return;
-
+  const applyOptimizations = async (results: OptimizationResult[]) => {
     setShowProgressModal(true);
-    setProgress({
-      current: 0,
-      total: products.length,
-      status: "Starting AI optimization..."
-    });
-
-    const results: OptimizationResult[] = [];
-    
-    for (let i = 0; i < products.length; i++) {
-      const product = products[i];
-      
-      setProgress({
-        current: i + 1,
-        total: products.length,
-        status: `Optimizing: ${product.title}`
-      });
-
-      try {
-        const payload = {
-          productId: product.productId,
-          productTitle: product.title,
-          apply: applyNow
-        };
-
-        const response = await postApi(ApiConfig.aiMetaTitleOptimization, payload);
-        
-        if (applyNow && response.applied) {
-          // Direct apply mode
-          results.push({
-            productId: product.productId,
-            oldMetaTitle: response.oldMetaTitle || '(Empty)',
-            newMetaTitle: response.newMetaTitle,
-            characterCount: response.characterCount || 0,
-            image: product.productImage
-          });
-        } else if (!applyNow && response.newMetaTitle) {
-          // Preview mode
-          results.push({
-            productId: product.productId,
-            oldMetaTitle: response.oldMetaTitle || '(Empty)',
-            newMetaTitle: response.newMetaTitle,
-            characterCount: response.characterCount || response.newMetaTitle.length,
-            image: product.productImage
-          });
-        }
-
-        // Add small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-      } catch (error) {
-        console.error(`Error optimizing ${product.title}:`, error);
-        results.push({
-          productId: product.productId,
-          oldMetaTitle: product.metaTitle || '(Empty)',
-          newMetaTitle: product.metaTitle || '(Empty)',
-          characterCount: (product.metaTitle || '').length,
-          image: product.productImage
-        });
-      }
-    }
-
-    setOptimizationResults(results);
-    setShowProgressModal(false);
-
-    if (applyNow) {
-      // Show direct success modal
-      const successful = results.filter(r => r.newMetaTitle !== r.oldMetaTitle).length;
-      setProgress({
-        current: successful,
-        total: products.length,
-        status: "completed"
-      });
-      setShowSuccessModal(true);
-    } else {
-      // Show preview modal
-      calculateComparisonStats(results);
-      setShowPreviewModal(true);
-    }
-  };
-
-  const applyMetaTitleOptimizations = async (results: OptimizationResult[]) => {
-    setShowProgressModal(true);
-    setProgress({
-      current: 0,
-      total: results.length,
-      status: "Applying optimizations to Shopify..."
-    });
-
-    let successCount = 0;
-    let failCount = 0;
-
+    setProgress({ current: 0, total: results.length, status: "Applying to Shopify..." });
+    let ok = 0;
     for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      
-      if (result.oldMetaTitle !== result.newMetaTitle) {
-        try {
-          await postApi(ApiConfig.updateMetaTitleOptimization, {
-            productId: result.productId,
-            oldMetaTitle: result.oldMetaTitle,
-            newMetaTitle: result.newMetaTitle
-          });
-          successCount++;
-        } catch (error) {
-          console.error(`Failed to update ${result.productId}:`, error);
-          failCount++;
-        }
+      const r = results[i];
+      if (r.oldMetaTitle !== r.newMetaTitle) {
+        try { await postApi(ApiConfig.updateMetaTitleOptimization, { productId: r.productId, oldMetaTitle: r.oldMetaTitle, newMetaTitle: r.newMetaTitle }); ok++; } catch { /**/ }
       }
-
-      setProgress({
-        current: i + 1,
-        total: results.length,
-        status: `Updating: ${result.productId}`
-      });
+      setProgress({ current: i + 1, total: results.length, status: `Updating...` });
     }
-
     setShowProgressModal(false);
     setShowComparisonModal(false);
-    
-    setProgress({
-      current: successCount,
-      total: results.length,
-      status: "completed"
-    });
+    setProgress({ current: ok, total: results.length, status: "completed" });
     setShowSuccessModal(true);
   };
 
-  const calculateComparisonStats = (results: OptimizationResult[]) => {
-    if (results.length === 0) return;
-
-    const avgOldLength = results.reduce((sum, r) => sum + (r.oldMetaTitle === '(Empty)' ? 0 : r.oldMetaTitle.length), 0) / results.length;
-    const avgNewLength = results.reduce((sum, r) => sum + r.newMetaTitle.length, 0) / results.length;
-    
-    const improvement = Math.round(((avgNewLength - avgOldLength) / (avgOldLength || 1)) * 100);
-    const seoScore = Math.min(100, Math.round((avgNewLength / 60) * 100));
-
+  const calcComparisonStats = (results: OptimizationResult[]) => {
+    if (!results.length) return;
+    const avgOld = results.reduce((s, r) => s + (r.oldMetaTitle === "(Empty)" ? 0 : r.oldMetaTitle.length), 0) / results.length;
+    const avgNew = results.reduce((s, r) => s + r.newMetaTitle.length, 0) / results.length;
     setStats({
-      averageLength: Math.round(avgNewLength),
-      seoScore,
-      improvement,
-      emptyTitles: results.filter(r => r.oldMetaTitle === '(Empty)').length
+      averageLength: Math.round(avgNew),
+      seoScore: Math.min(100, Math.round((avgNew / 60) * 100)),
+      improvement: Math.round(((avgNew - avgOld) / (avgOld || 1)) * 100),
+      emptyTitles: results.filter(r => r.oldMetaTitle === "(Empty)").length,
     });
   };
+
+  const avgMetaLength = products.length > 0 ? Math.round(products.reduce((s, p) => s + (p.metaTitle?.length || 0), 0) / products.length) : 0;
+  const emptyCount = products.filter(p => !p.metaTitle || p.metaTitle.trim() === "").length;
+  const exampleFormatData = exampleFormatId ? [...defaultMetaFormats, ...userTemplates].find(f => f.id === exampleFormatId) : null;
+  const exampleTpl = exampleFormatId ? templateConfig[exampleFormatId] : null;
 
   if (loading) {
     return (
       <AppLayout title="Meta Title Optimization">
         <div className="p-6 flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <Search className="w-12 h-12 animate-pulse text-blue-500 mx-auto mb-4" />
+            <Search className="w-12 h-12 animate-pulse text-green-500 mx-auto mb-4" />
             <p className="text-gray-600">Loading products for meta title optimization...</p>
           </div>
         </div>
@@ -410,553 +438,634 @@ export default function MetaTitleOptimization() {
 
   return (
     <AppLayout title="Meta Title Optimization">
-      <div className="p-6 space-y-6">
-        {/* Hero Section */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-2xl p-6 animate-fade-in">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg">
-                  <Search className="w-6 h-6 text-white" />
-                </div>
-                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
-                  <Rocket className="w-3 h-3 mr-1" /> SEO OPTIMIZED
-                </Badge>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-600 to-emerald-600">
-                  Boost Your Search Engine Rankings
-                </span>
-              </h1>
-              <p className="text-gray-600 mb-4">
-                Optimize your meta titles for better search visibility and higher click-through rates. 
-                Perfect meta titles can increase organic traffic by up to 40%.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Badge variant="outline" className="gap-1">
-                  <Globe className="w-3 h-3" /> Search Rankings
-                </Badge>
-                <Badge variant="outline" className="gap-1">
-                  <TrendingUp className="w-3 h-3" /> Higher CTR
-                </Badge>
-                <Badge variant="outline" className="gap-1">
-                  <Zap className="w-3 h-3" /> Quick Setup
-                </Badge>
-                <Badge variant="outline" className="gap-1">
-                  <Brain className="w-3 h-3" /> AI-Powered
-                </Badge>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Dialog open={showProductsModal} onOpenChange={setShowProductsModal}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Eye className="w-4 h-4" />
-                    {products.length} Products
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Products for Meta Title Optimization</DialogTitle>
-                    <DialogDescription>
-                      {products.length} products that need meta title optimization
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto">
-                    {products.map((product) => (
-                      <div key={product.productId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <img
-                          src={product.productImage}
-                          alt={product.title}
-                          className="w-12 h-12 rounded-lg object-cover border"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                          <p className="text-xs text-gray-500 truncate">
-                            Meta Title: {product.metaTitle || 'Not set'}
-                          </p>
-                        </div>
-                        {!product.metaTitle || product.metaTitle.trim() === '' ? (
-                          <Badge variant="destructive" className="text-xs">
-                            Empty
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">
-                            {product.metaTitle.length} chars
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              <Button 
-                onClick={() => setShowAIOptionsModal(true)}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-              >
-                <Brain className="w-4 h-4" />
-                Start AI Optimization
-              </Button>
-            </div>
+      <div className="p-5 space-y-5">
+
+        {/* Step Header */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-sm font-semibold text-gray-500 hover:border-green-400 hover:text-green-700 transition-all">
+            <ChevronLeft className="w-3.5 h-3.5" /> Back
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10.5px] font-bold text-gray-400 uppercase tracking-widest">Step 1 of 2</p>
+            <h1 className="text-xl font-extrabold text-gray-900 leading-tight">Meta Title Optimization</h1>
+            <p className="text-xs text-gray-500">Build your meta title formula and optimize for search engines</p>
+          </div>
+          <div className="flex items-center gap-1.5 bg-green-800 text-white px-4 py-1.5 rounded-full text-[12.5px] font-bold shadow-md shadow-green-900/25">
+            <Package className="w-3.5 h-3.5" /> {products.length} Products
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-white to-green-50 border-green-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                <RulerIcon className="w-4 h-4 text-green-500" />
-                Current Avg. Length
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
-                {stats.averageLength}
-                <span className="text-sm font-normal text-gray-500 ml-1">characters</span>
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Avg Meta Length", value: `${avgMetaLength}`, unit: "chars", hint: avgMetaLength < 50 ? "Too short for SEO" : avgMetaLength > 60 ? "May get truncated" : "Optimal range", pct: Math.min(100, (avgMetaLength / 60) * 100), color: "bg-green-400" },
+            { label: "SEO Score",       value: `${stats.seoScore}`, unit: "%",     hint: `${emptyCount} empty meta titles`, pct: stats.seoScore, color: "bg-amber-400" },
+            { label: "Traffic Boost",   value: "40",                unit: "%+",    hint: "Better meta = more clicks",       pct: 40, color: "bg-blue-400" },
+            { label: "Time Saved",      value: `${products.length * 2}`, unit: "min", hint: "AI works 24/7", pct: 100, color: "bg-purple-400" },
+          ].map(s => (
+            <div key={s.label} className="bg-white border-[1.5px] border-gray-200 rounded-xl p-4 shadow-sm">
+              <p className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider mb-1">{s.label}</p>
+              <div className="text-2xl font-extrabold text-gray-900 leading-none">{s.value}<span className="text-sm font-medium text-gray-400 ml-1">{s.unit}</span></div>
+              <p className="text-[11px] text-gray-400 mt-0.5">{s.hint}</p>
+              <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${s.color}`} style={{ width: `${s.pct}%` }} />
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {stats.averageLength < 50 ? "Too short for SEO" : 
-                 stats.averageLength > 60 ? "May get truncated" : "Optimal range"}
-              </div>
-              <Progress 
-                value={Math.min(100, (stats.averageLength / 60) * 100)} 
-                className="mt-2 h-1"
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-white to-amber-50 border-amber-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-amber-500" />
-                SEO Score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
-                {stats.seoScore}%
-                <span className="text-sm font-normal text-gray-500 ml-1">
-                  {stats.seoScore > 80 ? "Excellent" : stats.seoScore > 60 ? "Good" : "Needs work"}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {stats.emptyTitles} empty meta titles
-              </div>
-              <Progress 
-                value={stats.seoScore} 
-                className="mt-2 h-1"
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-white to-blue-50 border-blue-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-                Traffic Boost
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
-                Up to 40%
-                <span className="text-sm font-normal text-gray-500 ml-1">increase</span>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Better meta titles = More clicks
-              </div>
-              <div className="flex items-center mt-2">
-                <Stars className="w-4 h-4 text-amber-500 mr-1" />
-                <Stars className="w-4 h-4 text-amber-500 mr-1" />
-                <Stars className="w-4 h-4 text-amber-500 mr-1" />
-                <Stars className="w-4 h-4 text-amber-500 mr-1" />
-                <Stars className="w-4 h-4 text-gray-300" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-white to-purple-50 border-purple-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-purple-500" />
-                Time to Optimize
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
-                {products.length * 2} min
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                AI completes in minutes
-              </div>
-              <div className="flex items-center gap-1 mt-2">
-                <Zap className="w-4 h-4 text-purple-500" />
-                <span className="text-xs text-gray-600">Instant optimization</span>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Classic Optimization */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="border-green-100">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <RulerIcon className="w-5 h-5 text-green-600" />
-                  Classic Meta Title Optimization
-                  <Badge className="ml-auto bg-gradient-to-r from-green-500 to-emerald-500 text-white">
-                    QUICK SETUP
-                  </Badge>
-                </CardTitle>
-                <CardDescription>
-                  Apply simple rules to optimize all your meta titles at once
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Copy Title to Meta Title */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Copy Product Title to Meta Title</Label>
-                      <p className="text-sm text-gray-500">
-                        Use your product titles as meta titles (recommended for empty meta titles)
-                      </p>
-                    </div>
-                    <Switch
-                      checked={classicRules.copyTitleToMeta}
-                      onCheckedChange={(checked) => setClassicRules({
-                        ...classicRules,
-                        copyTitleToMeta: checked
-                      })}
-                    />
+        {/* Main Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 items-start">
+
+          {/* Left Card */}
+          <div className="bg-white border-[1.5px] border-gray-200 rounded-xl shadow-sm overflow-hidden">
+
+            {/* Tabs */}
+            <div className="flex border-b-[1.5px] border-gray-200 px-4 bg-white">
+              {(["ai", "existing", "custom"] as TabType[]).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-3.5 text-[13px] font-semibold border-b-[2.5px] -mb-[1.5px] transition-all whitespace-nowrap ${
+                    activeTab === tab ? "text-green-800 border-green-800 font-bold" : "text-gray-400 border-transparent hover:text-green-700"
+                  }`}>
+                  {tab === "ai" ? "AI Optimization Templates" : tab === "existing" ? "Existing Meta Titles" : "Custom Formula"}
+                </button>
+              ))}
+            </div>
+
+            {/* ── AI TAB ── */}
+            {activeTab === "ai" && (
+              <>
+                <div className="px-4 py-2.5 text-xs text-gray-500 border-b-[1.5px] border-gray-200 bg-green-50">
+                  These are proven SEO meta title formulas. Choose one, customize the 4 elements, then generate.
+                </div>
+
+                {savedTemplateBanner && (
+                  <div className="mx-4 mt-3 flex items-center gap-2 bg-green-50 border-[1.5px] border-green-300 rounded-lg px-3 py-2 animate-pulse">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="text-[12.5px] font-bold text-green-700">{savedTemplateBanner}</span>
+                  </div>
+                )}
+
+                {/* Template Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 p-4">
+                  {[...defaultMetaFormats, ...userTemplates].map(format => {
+                    const tpl = templateConfig[format.id] ?? {
+                      icon: <Sparkles className="w-4 h-4 text-green-700" />,
+                      formulaTags: [format.primaryElement, format.secondaryElement, ...(format.thirdElement !== "none" ? [format.thirdElement] : []), ...(format.fourthElement !== "none" ? [format.fourthElement] : [])],
+                      example: buildFormulaPattern(format),
+                    };
+                    const isOn = selectedFormat.id === format.id;
+                    return (
+                      <div key={format.id}
+                        onClick={() => { setSelectedFormat(format); setFloatBarVisible(true); }}
+                        className={`relative border-[1.5px] rounded-xl p-4 cursor-pointer transition-all duration-200 flex flex-col gap-2.5 overflow-hidden
+                          ${isOn ? "border-green-700 bg-green-50 shadow-md shadow-green-100" : "border-gray-200 bg-white hover:border-green-300 hover:shadow-md hover:-translate-y-0.5"}`}
+                      >
+                        <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-green-500 to-green-800 transition-opacity ${isOn ? "opacity-100" : "opacity-0"}`} />
+                        {isOn && (
+                          <div className="absolute top-2.5 right-2.5 w-5 h-5 bg-green-700 rounded-full flex items-center justify-center">
+                            <CheckCircle className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isOn ? "bg-green-100" : "bg-green-50"}`}>{tpl.icon}</div>
+                          <span className={`text-sm font-extrabold ${isOn ? "text-green-800" : "text-gray-900"}`}>{format.categoryName}</span>
+                        </div>
+                        {/* Formula Element Tags */}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {tpl.formulaTags.map((tag, i) => (
+                            <span key={tag} className="contents">
+                              <span className={`text-[11.5px] font-semibold px-2 py-0.5 rounded-md border flex items-center gap-1
+                                ${isOn ? "bg-green-100 text-green-700 border-green-200" : "bg-green-50 text-green-700 border-green-100"}`}>
+                                {tag}
+                              </span>
+                              {i < tpl.formulaTags.length - 1 && <span className="text-[12px] font-bold text-gray-400">+</span>}
+                            </span>
+                          ))}
+                        </div>
+                        <div className={`text-[11.5px] text-gray-600 leading-relaxed rounded-lg px-3 py-2 border-l-[3px] border-green-500 ${isOn ? "bg-green-50/60" : "bg-gray-50"}`}>
+                          <span className="font-bold text-green-700">Ex: </span>{tpl.example}
+                        </div>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[10.5px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1
+                              ${isOn ? "bg-green-100/70 border-green-200 text-green-700" : "bg-gray-100 border-gray-200 text-gray-500"}`}>
+                              Length: <span className="font-extrabold">{format.minCharacters}–{format.maxCharacters}</span> chars
+                            </span>
+                            {format.id >= 9000 && (
+                              <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">✦ My Template</span>
+                            )}
+                          </div>
+                          {format.id >= 9000 ? (
+                            <button className="text-[11px] font-bold text-red-400 hover:text-red-600 bg-transparent border-none cursor-pointer hover:underline"
+                              onClick={(e) => { e.stopPropagation(); setUserTemplates(prev => prev.filter(t => t.id !== format.id)); if (selectedFormat.id === format.id) setSelectedFormat(defaultMetaFormats[0]); }}>
+                              ✕ Remove
+                            </button>
+                          ) : (
+                            <button className="text-[11.5px] font-bold text-green-600 hover:text-green-800 flex items-center gap-1 bg-transparent border-none cursor-pointer hover:underline"
+                              onClick={(e) => { e.stopPropagation(); setExampleFormatId(format.id); setShowExampleModal(true); }}>
+                              <Info className="w-3 h-3" /> See Example
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Save as New Template card */}
+                  <div onClick={() => saveAsNewTemplate(selectedFormat)}
+                    title={!hasRequiredMetaElement(selectedFormat) ? "Add Product Name or Primary Keyword to a slot first" : "Save current formula as new template"}
+                    className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 min-h-[140px] text-sm font-semibold transition-all cursor-pointer
+                      ${hasRequiredMetaElement(selectedFormat) ? "border-green-300 text-green-500 hover:border-green-500 hover:bg-green-50 hover:text-green-700" : "border-gray-200 text-gray-300 cursor-not-allowed opacity-50"}`}>
+                    <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center"><Plus className="w-5 h-5" /></div>
+                    <span>Save as New Template</span>
+                    <span className="text-[10.5px] font-normal text-center px-3 opacity-70">Saves your current customized formula</span>
                   </div>
                 </div>
 
-                {/* Prefix & Suffix */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Add Prefix</Label>
-                      <Switch
-                        checked={classicRules.prefix.enabled}
-                        onCheckedChange={(checked) => setClassicRules({
-                          ...classicRules,
-                          prefix: { ...classicRules.prefix, enabled: checked }
-                        })}
-                      />
-                    </div>
-                    {classicRules.prefix.enabled && (
-                      <Input
-                        value={classicRules.prefix.value}
-                        onChange={(e) => setClassicRules({
-                          ...classicRules,
-                          prefix: { ...classicRules.prefix, value: e.target.value }
-                        })}
-                        placeholder="e.g., Buy, Best, Shop"
-                      />
-                    )}
+                {/* Customize section */}
+                <div className="px-4 py-3.5 border-t-[1.5px] border-gray-200 bg-gray-50/60">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[13.5px] font-extrabold text-gray-800">Customize This Template</span>
+                    <span className="text-[10.5px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11v.5"/></svg>
+                      Product Name or Primary Keyword required
+                    </span>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm">Add Suffix</Label>
-                      <Switch
-                        checked={classicRules.suffix.enabled}
-                        onCheckedChange={(checked) => setClassicRules({
-                          ...classicRules,
-                          suffix: { ...classicRules.suffix, enabled: checked }
-                        })}
-                      />
+                  {/* Live Formula Preview */}
+                  <div className={`mb-3 rounded-xl px-3 py-2.5 border-[1.5px] transition-colors ${!hasRequiredMetaElement(selectedFormat) ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-1.5 ${!hasRequiredMetaElement(selectedFormat) ? "text-red-500" : "text-green-500"}`}>
+                      Live Formula Pattern
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[
+                        selectedFormat.primaryElement,
+                        selectedFormat.secondaryElement,
+                        selectedFormat.thirdElement !== "none" ? selectedFormat.thirdElement : null,
+                        selectedFormat.fourthElement !== "none" ? selectedFormat.fourthElement : null,
+                      ].filter(Boolean).map((el, i, arr) => (
+                        <span key={i} className="contents">
+                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${
+                            ["Product Name","Primary Keyword"].includes(el!)
+                              ? "text-white bg-green-700 border border-green-800"
+                              : "text-green-800 bg-green-100 border border-green-200"
+                          }`}>
+                            {["Product Name","Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
+                            {`{${el}}`}
+                          </span>
+                          {i < arr.length - 1 && <span className="text-green-400 font-bold text-sm">+</span>}
+                        </span>
+                      ))}
                     </div>
-                    {classicRules.suffix.enabled && (
-                      <Input
-                        value={classicRules.suffix.value}
-                        onChange={(e) => setClassicRules({
-                          ...classicRules,
-                          suffix: { ...classicRules.suffix, value: e.target.value }
-                        })}
-                        placeholder="e.g., | Your Store Name"
-                      />
-                    )}
+                    <p className="text-[10.5px] text-gray-500 mt-2 pt-2 border-t border-green-100">
+                      <span className="font-bold text-green-600">Sent to AI: </span>
+                      <span className="font-mono">{buildFormulaPattern(selectedFormat)}</span>
+                    </p>
                   </div>
-                </div>
 
-                {/* Find & Replace */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Find & Replace Text</Label>
-                    <Switch
-                      checked={classicRules.findReplace.enabled}
-                      onCheckedChange={(checked) => setClassicRules({
-                        ...classicRules,
-                        findReplace: { ...classicRules.findReplace, enabled: checked }
-                      })}
-                    />
-                  </div>
-                  {classicRules.findReplace.enabled && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Input
-                          value={classicRules.findReplace.find}
-                          onChange={(e) => setClassicRules({
-                            ...classicRules,
-                            findReplace: { ...classicRules.findReplace, find: e.target.value }
-                          })}
-                          placeholder="Find text"
-                        />
-                      </div>
-                      <div>
-                        <Input
-                          value={classicRules.findReplace.replace}
-                          onChange={(e) => setClassicRules({
-                            ...classicRules,
-                            findReplace: { ...classicRules.findReplace, replace: e.target.value }
-                          })}
-                          placeholder="Replace with"
-                        />
-                      </div>
+                  {!hasRequiredMetaElement(selectedFormat) && (
+                    <div className="mb-3 flex items-center gap-2 bg-red-50 border-[1.5px] border-red-300 rounded-lg px-3 py-2">
+                      <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M8 2L1 14h14L8 2z"/><path d="M8 7v3M8 12v.5"/>
+                      </svg>
+                      <span className="text-[12px] font-bold text-red-600">"Product Name" or "Primary Keyword" is required in at least one slot.</span>
+                      <button onClick={() => setSelectedFormat({ ...selectedFormat, primaryElement: "Product Name" })}
+                        className="ml-auto text-[11px] font-extrabold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap flex-shrink-0">
+                        Fix it →
+                      </button>
                     </div>
                   )}
-                </div>
 
-                {/* Find & Remove */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Find & Remove Text</Label>
-                    <Switch
-                      checked={classicRules.findRemove.enabled}
-                      onCheckedChange={(checked) => setClassicRules({
-                        ...classicRules,
-                        findRemove: { ...classicRules.findRemove, enabled: checked }
-                      })}
-                    />
+                  {/* 4 Element Dropdowns */}
+                  <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">1st Element</label>
+                      <select value={selectedFormat.primaryElement}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const updated = { ...selectedFormat, primaryElement: val };
+                          if (!["Product Name","Primary Keyword"].includes(val) && !["Product Name","Primary Keyword"].includes(updated.secondaryElement)) {
+                            updated.secondaryElement = "Product Name";
+                          }
+                          setSelectedFormat(updated);
+                        }}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
+                          ["Product Name","Primary Keyword"].includes(selectedFormat.primaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                        }`}>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">2nd Element</label>
+                      <select value={selectedFormat.secondaryElement}
+                        onChange={(e) => setSelectedFormat({ ...selectedFormat, secondaryElement: e.target.value })}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
+                          ["Product Name","Primary Keyword"].includes(selectedFormat.secondaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                        }`}>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">3rd Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
+                      <select value={selectedFormat.thirdElement}
+                        onChange={(e) => setSelectedFormat({ ...selectedFormat, thirdElement: e.target.value })}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
+                          ["Product Name","Primary Keyword"].includes(selectedFormat.thirdElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                        }`}>
+                        <option value="none">— None —</option>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">4th Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
+                      <select value={selectedFormat.fourthElement}
+                        onChange={(e) => setSelectedFormat({ ...selectedFormat, fourthElement: e.target.value })}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
+                          ["Product Name","Primary Keyword"].includes(selectedFormat.fourthElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                        }`}>
+                        <option value="none">— None —</option>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
                   </div>
-                  {classicRules.findRemove.enabled && (
-                    <Input
-                      value={classicRules.findRemove.value}
-                      onChange={(e) => setClassicRules({
-                        ...classicRules,
-                        findRemove: { ...classicRules.findRemove, value: e.target.value }
-                      })}
-                      placeholder="Text to remove"
-                    />
-                  )}
-                </div>
 
-                {/* Truncate */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-sm">Truncate Long Titles</Label>
-                      <p className="text-xs text-gray-500">Recommended max: 60 characters</p>
+                  {/* Tone + Brand + Min/Max */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Tone</label>
+                      <select value={selectedFormat.tone} onChange={(e) => setSelectedFormat({ ...selectedFormat, tone: e.target.value })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500">
+                        {tones.map(t => <option key={t}>{t}</option>)}
+                      </select>
                     </div>
-                    <Switch
-                      checked={classicRules.truncate.enabled}
-                      onCheckedChange={(checked) => setClassicRules({
-                        ...classicRules,
-                        truncate: { ...classicRules.truncate, enabled: checked }
-                      })}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Brand Focused</label>
+                      <select value={selectedFormat.brandFocused ? "On" : "Off"} onChange={(e) => setSelectedFormat({ ...selectedFormat, brandFocused: e.target.value === "On" })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500">
+                        <option>Off</option><option>On</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Min Characters</label>
+                      <input type="number" value={selectedFormat.minCharacters} onChange={(e) => setSelectedFormat({ ...selectedFormat, minCharacters: parseInt(e.target.value) || 45 })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Max Characters</label>
+                      <input type="number" value={selectedFormat.maxCharacters} onChange={(e) => setSelectedFormat({ ...selectedFormat, maxCharacters: parseInt(e.target.value) || 60 })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500" />
+                    </div>
                   </div>
-                  {classicRules.truncate.enabled && (
-                    <div className="space-y-3">
-                      <div>
-                        <Label>Maximum Length (characters)</Label>
-                        <Input
-                          type="number"
-                          value={classicRules.truncate.maxLength}
-                          onChange={(e) => setClassicRules({
-                            ...classicRules,
-                            truncate: { ...classicRules.truncate, maxLength: parseInt(e.target.value) || 60 }
-                          })}
-                        />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={classicRules.truncate.preserveWords}
-                          onCheckedChange={(checked) => setClassicRules({
-                            ...classicRules,
-                            truncate: { ...classicRules.truncate, preserveWords: checked }
-                          })}
-                        />
-                        <Label className="text-sm">Preserve word boundaries (don't cut words)</Label>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    onClick={() => handleClassicOptimization(true)}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Preview Changes
-                  </Button>
-                  <Button
-                    onClick={() => handleClassicOptimization(false)}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    Apply Directly
-                  </Button>
+                <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
+                  <button onClick={() => handleAIOptimization(selectedFormat, false)} disabled={!hasRequiredMetaElement(selectedFormat)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed">
+                    <Play className="w-3.5 h-3.5" /> Generate AI Meta Titles
+                  </button>
+                  <button onClick={() => handleAIOptimization(selectedFormat, true)} disabled={!hasRequiredMetaElement(selectedFormat)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed">
+                    <ArrowRight className="w-3.5 h-3.5" /> Optimize & Apply Directly
+                  </button>
+                  <button onClick={() => saveAsNewTemplate(selectedFormat)} disabled={!hasRequiredMetaElement(selectedFormat)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-[1.5px] border-green-300 bg-white text-green-600 hover:bg-green-50 hover:border-green-500 text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    <Plus className="w-3.5 h-3.5" /> Save as New Template
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </>
+            )}
 
-          {/* Right Column - AI Optimization */}
-          <div className="space-y-6">
-            <Card className="border-purple-100">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-600" />
-                  AI-Powered Optimization
-                  <Badge className="ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                    RECOMMENDED
-                  </Badge>
-                </CardTitle>
-                <CardDescription>
-                  Let AI analyze and create perfect meta titles for search engines
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-purple-500 mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-1">Why AI Optimization?</h4>
-                      <ul className="text-sm text-gray-600 space-y-1">
-                        <li>✓ SEO-optimized for search rankings</li>
-                        <li>✓ Includes high-intent keywords</li>
-                        <li>✓ Optimal length (50-60 characters)</li>
-                        <li>✓ Unique for each product</li>
-                        <li>✓ Includes brand and benefits</li>
-                      </ul>
+            {/* ── EXISTING TAB ── */}
+            {activeTab === "existing" && (
+              <div className="p-4">
+                {products.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <Package className="w-10 h-10 text-gray-300 mb-3" />
+                    <p className="text-[13px] font-semibold text-gray-400">No products loaded yet</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-2.5 px-1 pb-2 border-b-[1.5px] border-gray-200 mb-1" style={{ gridTemplateColumns: "44px 1fr 100px 70px 80px" }}>
+                      <div /><div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Product / Meta Title</div>
+                      <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Length</div>
+                      <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Status</div>
+                      <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Action</div>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {products.map(product => (
+                        <div key={product.productId} className="grid gap-2.5 py-2.5 px-1 items-center hover:bg-gray-50" style={{ gridTemplateColumns: "44px 1fr 100px 70px 80px" }}>
+                          <img src={product.productImage} alt={product.title} className="w-9 h-9 rounded-lg object-cover border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-semibold text-gray-900 truncate">{product.title}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 truncate font-mono">{product.metaTitle || <span className="text-red-400 not-italic font-sans italic">No meta title</span>}</p>
+                          </div>
+                          <MetaLengthBar length={product.metaTitle?.length || 0} max={60} />
+                          <MetaStatusBadge length={product.metaTitle?.length || 0} />
+                          <button onClick={() => handleSingleOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
+                            <ArrowRight className="w-2.5 h-2.5" /> Optimize
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── CUSTOM FORMULA TAB ── */}
+            {activeTab === "custom" && (
+              <>
+                <div className="px-4 py-2.5 text-xs text-gray-500 border-b-[1.5px] border-gray-200 bg-green-50">
+                  Build your own meta title formula — pick any 4 elements from the SEO element library and the full formula is sent directly to AI.
+                </div>
+                <div className="px-4 py-3.5 space-y-3">
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Template Name</label>
+                    <input type="text" value={customFormula.categoryName} onChange={(e) => setCustomFormula({ ...customFormula, categoryName: e.target.value })}
+                      placeholder="e.g. My SEO Meta Formula"
+                      className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[13px] text-gray-800 font-semibold outline-none focus:border-green-500" />
+                  </div>
+
+                  {/* Live Formula Preview */}
+                  <div className={`rounded-xl px-3 py-2.5 border-[1.5px] transition-colors ${!hasRequiredMetaElement(customFormula) ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-1.5 ${!hasRequiredMetaElement(customFormula) ? "text-red-500" : "text-green-500"}`}>
+                      Live Formula Pattern
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[customFormula.primaryElement, customFormula.secondaryElement,
+                        customFormula.thirdElement !== "none" ? customFormula.thirdElement : null,
+                        customFormula.fourthElement !== "none" ? customFormula.fourthElement : null,
+                      ].filter(Boolean).map((el, i, arr) => (
+                        <span key={i} className="contents">
+                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${
+                            ["Product Name","Primary Keyword"].includes(el!) ? "text-white bg-green-700 border border-green-800" : "text-green-800 bg-green-100 border border-green-200"
+                          }`}>
+                            {["Product Name","Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
+                            {`{${el}}`}
+                          </span>
+                          {i < arr.length - 1 && <span className="text-green-400 font-bold text-sm">+</span>}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[10.5px] text-gray-500 mt-2 pt-2 border-t border-green-100">
+                      <span className="font-bold text-green-600">Sent to AI: </span>
+                      <span className="font-mono">{buildFormulaPattern(customFormula)}</span>
+                    </p>
+                  </div>
+
+                  {!hasRequiredMetaElement(customFormula) && (
+                    <div className="flex items-center gap-2 bg-red-50 border-[1.5px] border-red-300 rounded-lg px-3 py-2">
+                      <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M8 2L1 14h14L8 2z"/><path d="M8 7v3M8 12v.5"/>
+                      </svg>
+                      <span className="text-[12px] font-bold text-red-600">"Product Name" or "Primary Keyword" is required in at least one slot.</span>
+                      <button onClick={() => setCustomFormula({ ...customFormula, primaryElement: "Product Name" })}
+                        className="ml-auto text-[11px] font-extrabold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-md whitespace-nowrap flex-shrink-0">
+                        Fix it →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 4 Dropdowns */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">1st Element</label>
+                      <select value={customFormula.primaryElement}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const updated = { ...customFormula, primaryElement: val };
+                          if (!["Product Name","Primary Keyword"].includes(val) && !["Product Name","Primary Keyword"].includes(updated.secondaryElement)) updated.secondaryElement = "Product Name";
+                          setCustomFormula(updated);
+                        }}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.primaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">2nd Element</label>
+                      <select value={customFormula.secondaryElement} onChange={(e) => setCustomFormula({ ...customFormula, secondaryElement: e.target.value })}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.secondaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">3rd Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
+                      <select value={customFormula.thirdElement} onChange={(e) => setCustomFormula({ ...customFormula, thirdElement: e.target.value })}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.thirdElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        <option value="none">— None —</option>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">4th Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
+                      <select value={customFormula.fourthElement} onChange={(e) => setCustomFormula({ ...customFormula, fourthElement: e.target.value })}
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.fourthElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        <option value="none">— None —</option>
+                        {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Tone</label>
+                      <select value={customFormula.tone} onChange={(e) => setCustomFormula({ ...customFormula, tone: e.target.value })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500">
+                        {tones.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Brand Focused</label>
+                      <select value={customFormula.brandFocused ? "On" : "Off"} onChange={(e) => setCustomFormula({ ...customFormula, brandFocused: e.target.value === "On" })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500">
+                        <option>Off</option><option>On</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Min Characters</label>
+                      <input type="number" value={customFormula.minCharacters} onChange={(e) => setCustomFormula({ ...customFormula, minCharacters: parseInt(e.target.value) || 45 })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">Max Characters</label>
+                      <input type="number" value={customFormula.maxCharacters} onChange={(e) => setCustomFormula({ ...customFormula, maxCharacters: parseInt(e.target.value) || 60 })}
+                        className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg bg-white text-[12.5px] text-gray-800 outline-none focus:border-green-500" />
                     </div>
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => setShowAIOptionsModal(true)}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-2"
-                >
-                  <Brain className="w-4 h-4" />
-                  Start AI Optimization
-                </Button>
-
-                <div className="text-xs text-gray-500 pt-2 border-t">
-                  <p className="font-medium mb-1">What AI does:</p>
-                  <ul className="space-y-1">
-                    <li>• Analyzes your product titles</li>
-                    <li>• Researches relevant keywords</li>
-                    <li>• Creates compelling meta titles</li>
-                    <li>• Ensures SEO best practices</li>
-                  </ul>
+                <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
+                  <button onClick={() => { setSelectedFormat(customFormula); handleAIOptimization(customFormula, false); }} disabled={!hasRequiredMetaElement(customFormula)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-800 text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    <Play className="w-3.5 h-3.5" /> Generate AI Meta Titles
+                  </button>
+                  <button onClick={() => { setSelectedFormat(customFormula); handleAIOptimization(customFormula, true); }} disabled={!hasRequiredMetaElement(customFormula)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    <ArrowRight className="w-3.5 h-3.5" /> Optimize & Apply Directly
+                  </button>
+                  <button onClick={() => saveAsNewTemplate(customFormula)} disabled={!hasRequiredMetaElement(customFormula)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-[1.5px] border-green-300 bg-white text-green-600 hover:bg-green-50 text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    <Plus className="w-3.5 h-3.5" /> Save as New Template
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              </>
+            )}
+          </div>
+
+          {/* Right: Classic Rules */}
+          <div className="bg-white border-[1.5px] border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
+            <div>
+              <div className="flex items-center gap-2 font-extrabold text-gray-900 text-[14px] mb-1"><RulerIcon className="w-4 h-4 text-gray-600" /> Classic Rules</div>
+              <p className="text-xs text-gray-400">Manual meta title adjustments</p>
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 bg-green-50 rounded-lg border border-green-200">
+              <div><p className="text-[11.5px] font-bold text-gray-700">Copy Product Title</p><p className="text-[10px] text-gray-400">Use product title as meta title</p></div>
+              <button onClick={() => setClassicRules(p => ({ ...p, copyTitleToMeta: !p.copyTitleToMeta }))}
+                className={`w-9 h-5 rounded-full flex items-center px-0.5 flex-shrink-0 transition-colors ${classicRules.copyTitleToMeta ? "bg-green-600" : "bg-gray-200"}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${classicRules.copyTitleToMeta ? "translate-x-4" : ""}`} />
+              </button>
+            </div>
+
+            {[
+              { key: "prefix", label: "Prefix", ph: "e.g., Buy, Best, Shop" },
+              { key: "suffix", label: "Suffix", ph: "e.g., | Store Name" },
+              { key: "findRemove", label: "Find & Remove", ph: "Text to remove" },
+            ].map(({ key, label, ph }) => (
+              <div key={key} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-gray-600">{label}</span>
+                  <button onClick={() => setClassicRules(p => ({ ...p, [key]: { ...(p as any)[key], enabled: !(p as any)[key].enabled } }))}
+                    className={`w-9 h-5 rounded-full flex items-center px-0.5 transition-colors ${(classicRules as any)[key].enabled ? "bg-green-600" : "bg-gray-200"}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${(classicRules as any)[key].enabled ? "translate-x-4" : ""}`} />
+                  </button>
+                </div>
+                {(classicRules as any)[key].enabled && (
+                  <input value={(classicRules as any)[key].value} onChange={(e) => setClassicRules(p => ({ ...p, [key]: { ...(p as any)[key], value: e.target.value } }))}
+                    placeholder={ph} className="w-full px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg text-[12px] outline-none focus:border-green-500" />
+                )}
+              </div>
+            ))}
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-600">Find & Replace</span>
+                <button onClick={() => setClassicRules(p => ({ ...p, findReplace: { ...p.findReplace, enabled: !p.findReplace.enabled } }))}
+                  className={`w-9 h-5 rounded-full flex items-center px-0.5 transition-colors ${classicRules.findReplace.enabled ? "bg-green-600" : "bg-gray-200"}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${classicRules.findReplace.enabled ? "translate-x-4" : ""}`} />
+                </button>
+              </div>
+              {classicRules.findReplace.enabled && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input value={classicRules.findReplace.find} onChange={(e) => setClassicRules(p => ({ ...p, findReplace: { ...p.findReplace, find: e.target.value } }))} placeholder="Find" className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg text-[12px] outline-none focus:border-green-500" />
+                  <input value={classicRules.findReplace.replace} onChange={(e) => setClassicRules(p => ({ ...p, findReplace: { ...p.findReplace, replace: e.target.value } }))} placeholder="Replace" className="px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg text-[12px] outline-none focus:border-green-500" />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div><span className="text-[11px] font-bold text-gray-600">Truncate Titles</span><p className="text-[9.5px] text-gray-400">Max recommended: 60 chars</p></div>
+                <button onClick={() => setClassicRules(p => ({ ...p, truncate: { ...p.truncate, enabled: !p.truncate.enabled } }))}
+                  className={`w-9 h-5 rounded-full flex items-center px-0.5 flex-shrink-0 transition-colors ${classicRules.truncate.enabled ? "bg-green-600" : "bg-gray-200"}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${classicRules.truncate.enabled ? "translate-x-4" : ""}`} />
+                </button>
+              </div>
+              {classicRules.truncate.enabled && (
+                <div className="space-y-2">
+                  <input type="number" value={classicRules.truncate.maxLength} onChange={(e) => setClassicRules(p => ({ ...p, truncate: { ...p.truncate, maxLength: parseInt(e.target.value) || 60 } }))}
+                    className="w-full px-2.5 py-1.5 border-[1.5px] border-gray-200 rounded-lg text-[12px] outline-none focus:border-green-500" />
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setClassicRules(p => ({ ...p, truncate: { ...p.truncate, preserveWords: !p.truncate.preserveWords } }))}
+                      className={`w-9 h-5 rounded-full flex items-center px-0.5 flex-shrink-0 transition-colors ${classicRules.truncate.preserveWords ? "bg-green-600" : "bg-gray-200"}`}>
+                      <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${classicRules.truncate.preserveWords ? "translate-x-4" : ""}`} />
+                    </button>
+                    <span className="text-[10.5px] text-gray-600">Preserve word boundaries</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-1 border-t border-gray-100">
+              <button onClick={() => handleClassicOptimization(true)}
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-[13px] font-bold border-[1.5px] border-gray-200">
+                <Eye className="w-3.5 h-3.5" /> Preview Changes
+              </button>
+              <button onClick={() => handleClassicOptimization(false)}
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-900 text-white text-[13px] font-bold">
+                <Zap className="w-3.5 h-3.5" /> Apply Classic Rules
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* AI Options Modal */}
-        <Dialog open={showAIOptionsModal} onOpenChange={setShowAIOptionsModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-purple-500" />
-                AI Optimization Options
-              </DialogTitle>
-              <DialogDescription>
-                Choose how you want to apply AI optimization
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
-                  Preview First
-                </h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  See all AI-generated meta titles before applying them to your store
-                </p>
-                <Button
-                  onClick={() => {
-                    setShowAIOptionsModal(false);
-                    handleAIOptimization(false);
-                  }}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  Optimize & Preview
-                </Button>
-              </div>
+        {/* Float Bar */}
+        {/* {floatBarVisible && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-gray-900/95 backdrop-blur text-white rounded-2xl px-6 py-3.5 shadow-2xl border border-white/10">
+            <div className="flex items-center gap-2 mr-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-[13px] font-bold">{selectedFormat.categoryName}</span>
+              <span className="text-white/40 text-[11px] font-mono">• {buildFormulaPattern(selectedFormat)}</span>
+            </div>
+            <button onClick={() => handleAIOptimization(selectedFormat, false)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl px-5 py-2.5 font-extrabold text-[14px] shadow-lg shadow-green-700/40 transition-all hover:-translate-y-px">
+              <Play className="w-4 h-4" /> Generate Meta Titles
+            </button>
+            <button onClick={() => handleAIOptimization(selectedFormat, true)}
+              className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-5 py-2.5 font-extrabold text-[14px] shadow-lg transition-all hover:-translate-y-px">
+              Apply Directly <ArrowRight className="w-4 h-4" />
+            </button>
+            <button onClick={() => setFloatBarVisible(false)} className="text-white/40 hover:text-white/80 text-[13px] font-semibold cursor-pointer">Clear</button>
+          </div>
+        )} */}
 
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Apply Directly
-                </h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  AI will optimize and immediately apply the best meta titles to your Shopify store
-                </p>
-                <Button
-                  onClick={() => {
-                    setShowAIOptionsModal(false);
-                    handleAIOptimization(true);
-                  }}
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  Optimize & Apply Now
-                </Button>
+        {/* Example Modal */}
+        {showExampleModal && exampleFormatData && exampleTpl && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center" onClick={() => setShowExampleModal(false)}>
+            <div className="bg-white rounded-2xl p-6 max-w-[500px] w-[92%] shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[15px] font-extrabold text-gray-900">{exampleFormatData.categoryName} — Example</h3>
+                <button onClick={() => setShowExampleModal(false)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none cursor-pointer">×</button>
+              </div>
+              <p className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Formula Elements</p>
+              <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                {exampleTpl.formulaTags.map((tag, i, arr) => (
+                  <span key={tag} className="contents">
+                    <span className={`text-[11.5px] font-semibold px-2 py-0.5 rounded-md border ${["Product Name","Primary Keyword"].includes(tag) ? "bg-green-700 text-white border-green-800" : "bg-green-50 text-green-700 border-green-100"}`}>{tag}</span>
+                    {i < arr.length - 1 && <span className="text-gray-400 font-bold">+</span>}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Formula sent to AI</p>
+              <p className="font-mono text-[12px] bg-green-50 text-green-800 border border-green-200 rounded-lg px-3 py-2 mb-3">{buildFormulaPattern(exampleFormatData)}</p>
+              <p className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Example Output</p>
+              <p className="text-[13px] text-gray-800 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 mb-4">{exampleTpl.example}</p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowExampleModal(false)} className="flex-1 py-2.5 border-[1.5px] border-gray-200 rounded-lg text-[13px] font-bold text-gray-500">Close</button>
+                <button onClick={() => { setSelectedFormat(exampleFormatData); setShowExampleModal(false); setActiveTab("ai"); }}
+                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-800 text-white rounded-lg text-[13px] font-bold">Use This Formula</button>
               </div>
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowAIOptionsModal(false)}
-                className="w-full"
-              >
-                Cancel
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+        )}
 
         {/* Progress Modal */}
         <Dialog open={showProgressModal} onOpenChange={setShowProgressModal}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <RefreshCw className="w-5 h-5 animate-spin text-green-500" />
-                Optimizing Meta Titles
-              </DialogTitle>
-              <DialogDescription>
-                Please wait while we process your products...
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 animate-spin text-green-500" /> Optimizing Meta Titles</DialogTitle>
+              <DialogDescription>Please wait while we process your products...</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <Progress 
-                value={(progress.current / progress.total) * 100} 
-                className="h-2"
-              />
+              <Progress value={(progress.current / Math.max(progress.total, 1)) * 100} className="h-2" />
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-900">
-                  {progress.status}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {progress.current} of {progress.total} products processed
-                </p>
+                <p className="text-sm font-medium text-gray-900">{progress.status}</p>
+                <p className="text-xs text-gray-500 mt-1">{progress.current} of {progress.total} products processed</p>
               </div>
-              <div className="flex justify-center">
-                <Brain className="w-12 h-12 text-green-500 animate-pulse" />
-              </div>
+              <div className="flex justify-center"><Brain className="w-12 h-12 text-green-500 animate-pulse" /></div>
             </div>
           </DialogContent>
         </Dialog>
@@ -965,46 +1074,30 @@ export default function MetaTitleOptimization() {
         <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
-                Meta Title Optimization Preview
-              </DialogTitle>
-              <DialogDescription>
-                Review the optimized meta titles before applying them to your store
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-500" /> Meta Title Preview</DialogTitle>
+              <DialogDescription>Review optimized meta titles before applying to your store</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              {optimizationResults.map((result, index) => (
-                <div key={result.productId} className="p-4 border rounded-lg">
+              {optimizationResults.map(result => (
+                <div key={result.productId} className="p-4 border rounded-lg bg-white">
                   <div className="flex items-start gap-4">
-                    <img
-                      src={result.image}
-                      alt={result.oldMetaTitle}
-                      className="w-16 h-16 rounded-lg object-cover border"
-                    />
-                    <div className="flex-1">
+                    <img src={result.image} alt="" className="w-14 h-14 rounded-lg object-cover border flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <div className="flex-1 min-w-0">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs text-gray-500 mb-1">Original Meta Title</Label>
-                          <p className="text-sm text-gray-700">{result.oldMetaTitle}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {result.oldMetaTitle === '(Empty)' ? '0' : result.oldMetaTitle.length} chars
-                          </p>
+                          <p className="text-[10.5px] font-bold text-gray-400 uppercase mb-1">Original ({result.oldMetaTitle === "(Empty)" ? 0 : result.oldMetaTitle.length} chars)</p>
+                          <div className="p-2.5 border border-gray-200 rounded-lg bg-gray-50 text-[12.5px] text-gray-600 font-mono">{result.oldMetaTitle}</div>
                         </div>
                         <div>
-                          <Label className="text-xs text-gray-500 mb-1">Optimized Meta Title</Label>
-                          <p className="text-sm font-medium text-gray-900">{result.newMetaTitle}</p>
-                          <p className="text-xs text-gray-500 mt-1">{result.newMetaTitle.length} chars</p>
+                          <p className="text-[10.5px] font-bold text-green-500 uppercase mb-1">Optimized ({result.newMetaTitle.length} chars)</p>
+                          <div className={`p-2.5 border rounded-lg text-[12.5px] font-mono font-medium ${result.newMetaTitle.length > 60 ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-gray-800"}`}>{result.newMetaTitle}</div>
+                          {result.newMetaTitle.length > 60 && <p className="text-[10px] text-red-500 font-bold mt-1">⚠ Over 60 chars — may truncate in search</p>}
                         </div>
                       </div>
                       {result.oldMetaTitle !== result.newMetaTitle && (
-                        <div className="mt-3">
-                          <Badge variant={result.newMetaTitle.length > (result.oldMetaTitle === '(Empty)' ? 0 : result.oldMetaTitle.length) ? "success" : "secondary"} className="text-xs">
-                            {result.oldMetaTitle === '(Empty)' ? 'Added' : 'Improved'}
-                          </Badge>
-                          <span className="text-xs text-gray-600 ml-2">
-                            {Math.abs(result.newMetaTitle.length - (result.oldMetaTitle === '(Empty)' ? 0 : result.oldMetaTitle.length))} characters {result.newMetaTitle.length > (result.oldMetaTitle === '(Empty)' ? 0 : result.oldMetaTitle.length) ? 'added' : 'removed'}
-                          </span>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant={result.oldMetaTitle === "(Empty)" ? "default" : "secondary"} className="text-xs">{result.oldMetaTitle === "(Empty)" ? "Added" : "Improved"}</Badge>
+                          <span className="text-xs text-gray-500">{Math.abs(result.newMetaTitle.length - (result.oldMetaTitle === "(Empty)" ? 0 : result.oldMetaTitle.length))} chars {result.newMetaTitle.length > (result.oldMetaTitle === "(Empty)" ? 0 : result.oldMetaTitle.length) ? "added" : "removed"}</span>
                         </div>
                       )}
                     </div>
@@ -1013,22 +1106,10 @@ export default function MetaTitleOptimization() {
               ))}
             </div>
             <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowPreviewModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowPreviewModal(false);
-                  calculateComparisonStats(optimizationResults);
-                  setShowComparisonModal(true);
-                }}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-              >
-                <TrendingUp className="w-4 h-4" />
-                See Improvements & Apply
+              <Button variant="outline" onClick={() => setShowPreviewModal(false)}>Cancel</Button>
+              <Button onClick={() => { setShowPreviewModal(false); calcComparisonStats(optimizationResults); setShowComparisonModal(true); }}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2">
+                <TrendingUp className="w-4 h-4" /> See Improvements & Apply
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1038,74 +1119,30 @@ export default function MetaTitleOptimization() {
         <Dialog open={showComparisonModal} onOpenChange={setShowComparisonModal}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                Optimization Results
-              </DialogTitle>
-              <DialogDescription>
-                Here's how much better your meta titles will perform
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-500" /> Optimization Results</DialogTitle>
+              <DialogDescription>How much better your meta titles will perform</DialogDescription>
             </DialogHeader>
-            <div className="space-y-6">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-3xl font-bold text-center text-gray-900">
-                      {stats.improvement > 0 ? '+' : ''}{stats.improvement}%
-                    </div>
-                    <p className="text-sm text-center text-gray-600 mt-1">SEO Improvement</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-3xl font-bold text-center text-gray-900">
-                      {stats.averageLength}
-                    </div>
-                    <p className="text-sm text-center text-gray-600 mt-1">Avg. Character Length</p>
-                  </CardContent>
-                </Card>
+            <div className="space-y-5">
+              <div className="grid grid-cols-3 gap-4">
+                {[{ label: "SEO Improvement", value: `${stats.improvement > 0 ? "+" : ""}${stats.improvement}%` }, { label: "Avg. Length", value: `${stats.averageLength} chars` }, { label: "SEO Score", value: `${stats.seoScore}%` }].map(s => (
+                  <div key={s.label} className="text-center bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <div className="text-2xl font-extrabold text-gray-900">{s.value}</div>
+                    <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                  </div>
+                ))}
               </div>
-
-              {/* Comparison Text */}
-              <div className="text-center">
-                <p className="text-gray-700">
-                  <span className="font-semibold">Your new meta titles are {Math.abs(stats.improvement)}% better</span> 
-                  {" "}optimized for search engines.
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Expected organic traffic increase: <span className="font-medium text-green-600">Up to 40%</span>
-                </p>
-              </div>
-
-              {/* Benefits */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
-                <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  What you're getting:
-                </h4>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> What you're getting:</h4>
                 <ul className="space-y-1 text-sm text-green-700">
-                  <li>✓ SEO-optimized for better search rankings</li>
-                  <li>✓ Higher click-through rates from search results</li>
-                  <li>✓ Perfect length (50-60 characters)</li>
-                  <li>✓ Include primary keywords</li>
-                  <li>✓ Unique for each product page</li>
+                  <li>✓ SEO-optimized for better search rankings</li><li>✓ Higher click-through rates</li>
+                  <li>✓ Perfect length (50–60 characters)</li><li>✓ Your exact formula applied to every product</li>
                 </ul>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowComparisonModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => applyMetaTitleOptimizations(optimizationResults)}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-              >
-                <Save className="w-4 h-4" />
-                Apply All Changes
+              <Button variant="outline" onClick={() => setShowComparisonModal(false)}>Cancel</Button>
+              <Button onClick={() => applyOptimizations(optimizationResults)} className="bg-gradient-to-r from-green-600 to-emerald-600 gap-2">
+                <Save className="w-4 h-4" /> Apply All Changes
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1115,58 +1152,26 @@ export default function MetaTitleOptimization() {
         <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-green-500" />
-                Success!
-              </DialogTitle>
-              <DialogDescription>
-                Your meta titles have been optimized successfully
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2"><Award className="w-5 h-5 text-green-500" /> Success!</DialogTitle>
+              <DialogDescription>Your meta titles have been optimized successfully</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Optimization Complete!
-                </h3>
-                <p className="text-gray-600">
-                  {progress.current} of {progress.total} meta titles were successfully updated.
-                </p>
-                {progress.total - progress.current > 0 && (
-                  <p className="text-sm text-amber-600 mt-2">
-                    {progress.total - progress.current} meta titles failed to update
-                  </p>
-                )}
+            <div className="space-y-4 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto"><CheckCircle className="w-8 h-8 text-green-600" /></div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Optimization Complete!</h3>
+                <p className="text-gray-600">{progress.current} of {progress.total} meta titles updated.</p>
               </div>
-
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-lg p-4">
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Pro Tip:</span> Monitor your Google Search Console in the next 14-28 days to see the impact of your optimized meta titles on search rankings and organic traffic.
-                </p>
+              <div className="bg-green-50 border border-green-100 rounded-lg p-4 text-left">
+                <p className="text-sm text-gray-700"><span className="font-semibold">Pro Tip:</span> Monitor Google Search Console in 14–28 days to track your improved rankings.</p>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => navigate('/')}
-                className="flex-1"
-              >
-                Go to Dashboard
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  fetchStoredProducts();
-                }}
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-              >
-                Optimize More Products
-              </Button>
+              <Button variant="outline" onClick={() => navigate("/")} className="flex-1">Go to Dashboard</Button>
+              <Button onClick={() => { setShowSuccessModal(false); fetchStoredProducts(); }} className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600">Optimize More Products</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </div>
     </AppLayout>
   );
