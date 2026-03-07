@@ -1002,26 +1002,6 @@ export default function MetaTitleOptimization() {
           </div>
         </div>
 
-        {/* Float Bar */}
-        {/* {floatBarVisible && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-gray-900/95 backdrop-blur text-white rounded-2xl px-6 py-3.5 shadow-2xl border border-white/10">
-            <div className="flex items-center gap-2 mr-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[13px] font-bold">{selectedFormat.categoryName}</span>
-              <span className="text-white/40 text-[11px] font-mono">• {buildFormulaPattern(selectedFormat)}</span>
-            </div>
-            <button onClick={() => handleAIOptimization(selectedFormat, false)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl px-5 py-2.5 font-extrabold text-[14px] shadow-lg shadow-green-700/40 transition-all hover:-translate-y-px">
-              <Play className="w-4 h-4" /> Generate Meta Titles
-            </button>
-            <button onClick={() => handleAIOptimization(selectedFormat, true)}
-              className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-5 py-2.5 font-extrabold text-[14px] shadow-lg transition-all hover:-translate-y-px">
-              Apply Directly <ArrowRight className="w-4 h-4" />
-            </button>
-            <button onClick={() => setFloatBarVisible(false)} className="text-white/40 hover:text-white/80 text-[13px] font-semibold cursor-pointer">Clear</button>
-          </div>
-        )} */}
-
         {/* Example Modal */}
         {showExampleModal && exampleFormatData && exampleTpl && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center" onClick={() => setShowExampleModal(false)}>

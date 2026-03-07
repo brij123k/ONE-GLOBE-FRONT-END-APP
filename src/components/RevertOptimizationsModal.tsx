@@ -18,8 +18,8 @@ interface RevertItem {
   newMetaTitle?: string;
   oldMetaDescription?: string;
   newMetaDescription?: string;
-  oldHandle?: string;
-  newHandle?: string;
+  oldMetaHandle?: string;
+  newMetaHandle?: string;
   oldPrice?: number;
   newPrice?: number;
   oldSku?: string;
@@ -152,7 +152,7 @@ export function RevertOptimizationsModal({
       case 'description': return item.oldDescription;
       case 'metaTitle': return item.oldMetaTitle;
       case 'metaDescription': return item.oldMetaDescription;
-      case 'handle': return item.oldHandle;
+      case 'handle': return item.oldMetaHandle;
       case 'pricing': return item.oldPrice;
       case 'sku': return item.oldSku;
       case 'productType': return item.oldProductType;
@@ -168,7 +168,7 @@ export function RevertOptimizationsModal({
       case 'description': return item.newDescription;
       case 'metaTitle': return item.newMetaTitle;
       case 'metaDescription': return item.newMetaDescription;
-      case 'handle': return item.newHandle;
+      case 'handle': return item.newMetaHandle;
       case 'pricing': return item.newPrice;
       case 'sku': return item.newSku;
       case 'productType': return item.newProductType;

@@ -17,6 +17,7 @@ const ApiConfig = {
   getStoredMetaDecProduct:`${BASE_URL}/api/optimization/products?serviceName=metaDescription`,
   getStoredMetaHandleProduct:`${BASE_URL}/api/optimization/products?serviceName=handle`,
   getStorePriceProduct:`${BASE_URL}/api/optimization/products?serviceName=pricing`,
+  getStoredskuProducts:`${BASE_URL}/api/optimization/products?serviceName=sku`,
 
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
@@ -44,6 +45,8 @@ const ApiConfig = {
   priceApply:`${BASE_URL}/pricing/apply`,
 
 
+  // sku
+  updateSku:`${BASE_URL}/api/sku/update`,
   // revert funtion
   getRevertOptimizations:`${BASE_URL}/reviert`,
   saveRevertOptimizations:`${BASE_URL}/reviert/save`
