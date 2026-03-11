@@ -86,14 +86,13 @@ const optimizationTools = [
     path: "/products?service=imageALT",
     category: "media",
   },
-  // {
-  //   icon: Image,
-  //   title: "Image Size Optimization",
-  //   description: "Compress and optimize images for faster loading without quality loss.",
-  //   path: "/products?service=image",
-  //   category: "media",
-  //   popular: true,
-  // },
+  {
+    icon: Image,
+    title: "Image Name Optimization",
+    description: "optimize image Name for better SEO Ranking",
+    path: "/products?service=imageName",
+    category: "media",
+  },
   // {
   //   icon: Palette,
   //   title: "Image Title Tags",

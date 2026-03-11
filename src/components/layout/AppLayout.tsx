@@ -96,7 +96,7 @@ const navSections = [
     title: "Image & Media",
     items: [
       { icon: Image, label: "Image ALT Text", path: "/products?service=imageALT" },
-      // { icon: Image, label: "Image Title Tags", path: "/products?service=imageTitle" },
+      { icon: Image, label: "Image Name", path: "/products?service=imageName" },
       // { icon: Image, label: "Image Size Optimization", path: "/products?service=image", popular: true },
       // { icon: Palette, label: "Image Colors", path: "/products?service=imageColors" },
       // { icon: Cloud, label: "CDN Optimization", path: "/cdn-optimization" },

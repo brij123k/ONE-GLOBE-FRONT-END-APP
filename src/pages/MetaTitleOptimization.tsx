@@ -13,6 +13,7 @@ import {
   RefreshCw, Save, Play, Plus, Crown, Award, Trophy,
   RulerIcon, ArrowRight, ChevronLeft, Info, Package,
   Search, Globe, BarChart3, FileText, Layers, Eye,
+  ArrowLeft,
 } from "lucide-react";
 import { getApi, postApi } from "@/services/apiService";
 import ApiConfig from "@/services/apiConfig";
@@ -27,6 +28,7 @@ interface Product {
   productImage: string;
   handle: string;
   status: string;
+  optimized:boolean;
 }
 
 interface OptimizationResult {
@@ -459,9 +461,9 @@ export default function MetaTitleOptimization() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: "Avg Meta Length", value: `${avgMetaLength}`, unit: "chars", hint: avgMetaLength < 50 ? "Too short for SEO" : avgMetaLength > 60 ? "May get truncated" : "Optimal range", pct: Math.min(100, (avgMetaLength / 60) * 100), color: "bg-green-400" },
-            { label: "SEO Score",       value: `${stats.seoScore}`, unit: "%",     hint: `${emptyCount} empty meta titles`, pct: stats.seoScore, color: "bg-amber-400" },
-            { label: "Traffic Boost",   value: "40",                unit: "%+",    hint: "Better meta = more clicks",       pct: 40, color: "bg-blue-400" },
-            { label: "Time Saved",      value: `${products.length * 2}`, unit: "min", hint: "AI works 24/7", pct: 100, color: "bg-purple-400" },
+            { label: "SEO Score", value: `${stats.seoScore}`, unit: "%", hint: `${emptyCount} empty meta titles`, pct: stats.seoScore, color: "bg-amber-400" },
+            { label: "Traffic Boost", value: "40", unit: "%+", hint: "Better meta = more clicks", pct: 40, color: "bg-blue-400" },
+            { label: "Time Saved", value: `${products.length * 2}`, unit: "min", hint: "AI works 24/7", pct: 100, color: "bg-purple-400" },
           ].map(s => (
             <div key={s.label} className="bg-white border-[1.5px] border-gray-200 rounded-xl p-4 shadow-sm">
               <p className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider mb-1">{s.label}</p>
@@ -484,9 +486,8 @@ export default function MetaTitleOptimization() {
             <div className="flex border-b-[1.5px] border-gray-200 px-4 bg-white">
               {(["ai", "existing", "custom"] as TabType[]).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-3.5 text-[13px] font-semibold border-b-[2.5px] -mb-[1.5px] transition-all whitespace-nowrap ${
-                    activeTab === tab ? "text-green-800 border-green-800 font-bold" : "text-gray-400 border-transparent hover:text-green-700"
-                  }`}>
+                  className={`px-4 py-3.5 text-[13px] font-semibold border-b-[2.5px] -mb-[1.5px] transition-all whitespace-nowrap ${activeTab === tab ? "text-green-800 border-green-800 font-bold" : "text-gray-400 border-transparent hover:text-green-700"
+                    }`}>
                   {tab === "ai" ? "AI Optimization Templates" : tab === "existing" ? "Existing Meta Titles" : "Custom Formula"}
                 </button>
               ))}
@@ -588,7 +589,7 @@ export default function MetaTitleOptimization() {
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[13.5px] font-extrabold text-gray-800">Customize This Template</span>
                     <span className="text-[10.5px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11v.5"/></svg>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="8" r="6" /><path d="M8 5v4M8 11v.5" /></svg>
                       Product Name or Primary Keyword required
                     </span>
                   </div>
@@ -606,12 +607,11 @@ export default function MetaTitleOptimization() {
                         selectedFormat.fourthElement !== "none" ? selectedFormat.fourthElement : null,
                       ].filter(Boolean).map((el, i, arr) => (
                         <span key={i} className="contents">
-                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${
-                            ["Product Name","Primary Keyword"].includes(el!)
+                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${["Product Name", "Primary Keyword"].includes(el!)
                               ? "text-white bg-green-700 border border-green-800"
                               : "text-green-800 bg-green-100 border border-green-200"
-                          }`}>
-                            {["Product Name","Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
+                            }`}>
+                            {["Product Name", "Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
                             {`{${el}}`}
                           </span>
                           {i < arr.length - 1 && <span className="text-green-400 font-bold text-sm">+</span>}
@@ -627,7 +627,7 @@ export default function MetaTitleOptimization() {
                   {!hasRequiredMetaElement(selectedFormat) && (
                     <div className="mb-3 flex items-center gap-2 bg-red-50 border-[1.5px] border-red-300 rounded-lg px-3 py-2">
                       <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M8 2L1 14h14L8 2z"/><path d="M8 7v3M8 12v.5"/>
+                        <path d="M8 2L1 14h14L8 2z" /><path d="M8 7v3M8 12v.5" />
                       </svg>
                       <span className="text-[12px] font-bold text-red-600">"Product Name" or "Primary Keyword" is required in at least one slot.</span>
                       <button onClick={() => setSelectedFormat({ ...selectedFormat, primaryElement: "Product Name" })}
@@ -645,14 +645,13 @@ export default function MetaTitleOptimization() {
                         onChange={(e) => {
                           const val = e.target.value;
                           const updated = { ...selectedFormat, primaryElement: val };
-                          if (!["Product Name","Primary Keyword"].includes(val) && !["Product Name","Primary Keyword"].includes(updated.secondaryElement)) {
+                          if (!["Product Name", "Primary Keyword"].includes(val) && !["Product Name", "Primary Keyword"].includes(updated.secondaryElement)) {
                             updated.secondaryElement = "Product Name";
                           }
                           setSelectedFormat(updated);
                         }}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
-                          ["Product Name","Primary Keyword"].includes(selectedFormat.primaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
-                        }`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(selectedFormat.primaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                          }`}>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
                     </div>
@@ -660,9 +659,8 @@ export default function MetaTitleOptimization() {
                       <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">2nd Element</label>
                       <select value={selectedFormat.secondaryElement}
                         onChange={(e) => setSelectedFormat({ ...selectedFormat, secondaryElement: e.target.value })}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
-                          ["Product Name","Primary Keyword"].includes(selectedFormat.secondaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
-                        }`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(selectedFormat.secondaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                          }`}>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
                     </div>
@@ -670,9 +668,8 @@ export default function MetaTitleOptimization() {
                       <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">3rd Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
                       <select value={selectedFormat.thirdElement}
                         onChange={(e) => setSelectedFormat({ ...selectedFormat, thirdElement: e.target.value })}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
-                          ["Product Name","Primary Keyword"].includes(selectedFormat.thirdElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
-                        }`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(selectedFormat.thirdElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                          }`}>
                         <option value="none">— None —</option>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
@@ -681,9 +678,8 @@ export default function MetaTitleOptimization() {
                       <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">4th Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
                       <select value={selectedFormat.fourthElement}
                         onChange={(e) => setSelectedFormat({ ...selectedFormat, fourthElement: e.target.value })}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${
-                          ["Product Name","Primary Keyword"].includes(selectedFormat.fourthElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
-                        }`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(selectedFormat.fourthElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"
+                          }`}>
                         <option value="none">— None —</option>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
@@ -763,9 +759,15 @@ export default function MetaTitleOptimization() {
                           </div>
                           <MetaLengthBar length={product.metaTitle?.length || 0} max={60} />
                           <MetaStatusBadge length={product.metaTitle?.length || 0} />
-                          <button onClick={() => handleSingleOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
-                            <ArrowRight className="w-2.5 h-2.5" /> Optimize
-                          </button>
+                          {product?.optimized ? (
+                            <button className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-800 text-white text-[11px] font-bold whitespace-nowrap">
+                              <ArrowLeft className="w-2.5 h-2.5" /> Optimized
+                            </button>
+                          ) : (
+                            <button onClick={() => handleSingleOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
+                              <ArrowRight className="w-2.5 h-2.5" /> Optimize
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -796,14 +798,13 @@ export default function MetaTitleOptimization() {
                     </p>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {[customFormula.primaryElement, customFormula.secondaryElement,
-                        customFormula.thirdElement !== "none" ? customFormula.thirdElement : null,
-                        customFormula.fourthElement !== "none" ? customFormula.fourthElement : null,
+                      customFormula.thirdElement !== "none" ? customFormula.thirdElement : null,
+                      customFormula.fourthElement !== "none" ? customFormula.fourthElement : null,
                       ].filter(Boolean).map((el, i, arr) => (
                         <span key={i} className="contents">
-                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${
-                            ["Product Name","Primary Keyword"].includes(el!) ? "text-white bg-green-700 border border-green-800" : "text-green-800 bg-green-100 border border-green-200"
-                          }`}>
-                            {["Product Name","Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
+                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${["Product Name", "Primary Keyword"].includes(el!) ? "text-white bg-green-700 border border-green-800" : "text-green-800 bg-green-100 border border-green-200"
+                            }`}>
+                            {["Product Name", "Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
                             {`{${el}}`}
                           </span>
                           {i < arr.length - 1 && <span className="text-green-400 font-bold text-sm">+</span>}
@@ -819,7 +820,7 @@ export default function MetaTitleOptimization() {
                   {!hasRequiredMetaElement(customFormula) && (
                     <div className="flex items-center gap-2 bg-red-50 border-[1.5px] border-red-300 rounded-lg px-3 py-2">
                       <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M8 2L1 14h14L8 2z"/><path d="M8 7v3M8 12v.5"/>
+                        <path d="M8 2L1 14h14L8 2z" /><path d="M8 7v3M8 12v.5" />
                       </svg>
                       <span className="text-[12px] font-bold text-red-600">"Product Name" or "Primary Keyword" is required in at least one slot.</span>
                       <button onClick={() => setCustomFormula({ ...customFormula, primaryElement: "Product Name" })}
@@ -837,24 +838,24 @@ export default function MetaTitleOptimization() {
                         onChange={(e) => {
                           const val = e.target.value;
                           const updated = { ...customFormula, primaryElement: val };
-                          if (!["Product Name","Primary Keyword"].includes(val) && !["Product Name","Primary Keyword"].includes(updated.secondaryElement)) updated.secondaryElement = "Product Name";
+                          if (!["Product Name", "Primary Keyword"].includes(val) && !["Product Name", "Primary Keyword"].includes(updated.secondaryElement)) updated.secondaryElement = "Product Name";
                           setCustomFormula(updated);
                         }}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.primaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(customFormula.primaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">2nd Element</label>
                       <select value={customFormula.secondaryElement} onChange={(e) => setCustomFormula({ ...customFormula, secondaryElement: e.target.value })}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.secondaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(customFormula.secondaryElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">3rd Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
                       <select value={customFormula.thirdElement} onChange={(e) => setCustomFormula({ ...customFormula, thirdElement: e.target.value })}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.thirdElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(customFormula.thirdElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
                         <option value="none">— None —</option>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
@@ -862,7 +863,7 @@ export default function MetaTitleOptimization() {
                     <div className="flex flex-col gap-1">
                       <label className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider">4th Element <span className="text-gray-300 font-normal normal-case">(optional)</span></label>
                       <select value={customFormula.fourthElement} onChange={(e) => setCustomFormula({ ...customFormula, fourthElement: e.target.value })}
-                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name","Primary Keyword"].includes(customFormula.fourthElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
+                        className={`px-2.5 py-1.5 border-[1.5px] rounded-lg bg-white text-[12.5px] text-gray-800 outline-none transition-colors ${["Product Name", "Primary Keyword"].includes(customFormula.fourthElement) ? "border-green-500 bg-green-50 font-bold text-green-800" : "border-gray-200 focus:border-green-500"}`}>
                         <option value="none">— None —</option>
                         {allMetaSlotElements.map(el => <option key={el}>{el}</option>)}
                       </select>
@@ -1014,7 +1015,7 @@ export default function MetaTitleOptimization() {
               <div className="flex items-center gap-1.5 flex-wrap mb-3">
                 {exampleTpl.formulaTags.map((tag, i, arr) => (
                   <span key={tag} className="contents">
-                    <span className={`text-[11.5px] font-semibold px-2 py-0.5 rounded-md border ${["Product Name","Primary Keyword"].includes(tag) ? "bg-green-700 text-white border-green-800" : "bg-green-50 text-green-700 border-green-100"}`}>{tag}</span>
+                    <span className={`text-[11.5px] font-semibold px-2 py-0.5 rounded-md border ${["Product Name", "Primary Keyword"].includes(tag) ? "bg-green-700 text-white border-green-800" : "bg-green-50 text-green-700 border-green-100"}`}>{tag}</span>
                     {i < arr.length - 1 && <span className="text-gray-400 font-bold">+</span>}
                   </span>
                 ))}

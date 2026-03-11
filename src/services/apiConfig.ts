@@ -18,7 +18,8 @@ const ApiConfig = {
   getStoredMetaHandleProduct:`${BASE_URL}/api/optimization/products?serviceName=handle`,
   getStorePriceProduct:`${BASE_URL}/api/optimization/products?serviceName=pricing`,
   getStoredskuProducts:`${BASE_URL}/api/optimization/products?serviceName=sku`,
-
+  getStoredImageAltProduct:`${BASE_URL}/api/optimization/products?serviceName=imageALT`,
+  getStoredImageNameProduct:`${BASE_URL}/api/optimization/products?serviceName=imageName`,
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
@@ -36,9 +37,13 @@ const ApiConfig = {
   aiMetaHandleOptimization:`${BASE_URL}/api/meta/handle/optimize`,
   updateMetaHandleOptimization:`${BASE_URL}/api/meta/handle/save`,
 
-  // image
-  aiImageOptimization:`${BASE_URL}/seo/image/optimize`,
-  updateImageOptimization:`${BASE_URL}/seo/image/save`,
+  // image ALT
+  aiImageOptimization:`${BASE_URL}/api/image/ai/alt`,
+  updateImageOptimization:`${BASE_URL}/api/image/alt/update`,
+
+    // image ALT
+  aiImageNameOptimization:`${BASE_URL}/api/image/ai/name`,
+  updateImageNameOptimization:`${BASE_URL}/api/image/name/update`,
 
   // pricing
   priceCalulation:`${BASE_URL}/pricing/calculate`,
@@ -49,8 +54,10 @@ const ApiConfig = {
   updateSku:`${BASE_URL}/api/sku/update`,
   // revert funtion
   getRevertOptimizations:`${BASE_URL}/reviert`,
-  saveRevertOptimizations:`${BASE_URL}/reviert/save`
+  saveRevertOptimizations:`${BASE_URL}/reviert/save`,
 
+  // image alt
+  
 };
 
 export default ApiConfig;
