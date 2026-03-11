@@ -612,6 +612,21 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
           </div>
         );
 
+        case 'imageALT':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-[#6b6862]">Current ImageALT</h3>
+            <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+              <p className="text-lg font-mono text-[#1a1917]">{product.handle}</p>
+            </div>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+              <p className="text-xs text-purple-700">
+                The handle is used in your product URLs. A clean, descriptive handle helps with SEO.
+              </p>
+            </div>
+          </div>
+        );
+
       case 'pricing':
         return (
           <div className="space-y-4">

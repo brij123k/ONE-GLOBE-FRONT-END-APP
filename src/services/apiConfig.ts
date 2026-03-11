@@ -20,6 +20,8 @@ const ApiConfig = {
   getStoredskuProducts:`${BASE_URL}/api/optimization/products?serviceName=sku`,
   getStoredImageAltProduct:`${BASE_URL}/api/optimization/products?serviceName=imageALT`,
   getStoredImageNameProduct:`${BASE_URL}/api/optimization/products?serviceName=imageName`,
+  getStoredProductType:`${BASE_URL}/api/optimization/products?serviceName=productType`,
+  getStoredVendor:`${BASE_URL}/api/optimization/products?serviceName=vendor`,
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
@@ -52,6 +54,13 @@ const ApiConfig = {
 
   // sku
   updateSku:`${BASE_URL}/api/sku/update`,
+
+  // product Type
+  aiproductTypeOptimization:`${BASE_URL}/product-type/ai/generate`,
+  updateProductType:`${BASE_URL}/product-type/update`,
+
+  // vendor
+  updateVendor:`${BASE_URL}/api/vendor/update`,
   // revert funtion
   getRevertOptimizations:`${BASE_URL}/reviert`,
   saveRevertOptimizations:`${BASE_URL}/reviert/save`,

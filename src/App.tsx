@@ -19,6 +19,8 @@ import PriceOptimization from "./pages/PriceOptimization";
 import SKUOptimization from "./pages/skuOptimizations";
 import ImageAltOptimization from "./pages/Imagealtoptimization";
 import ImageNameOptimization from "./pages/ImageNameOptimization";
+import ProductTypeOptimization from "./pages/ProductTypeOptimization";
+import VendorOptimization from "./pages/VendorOptimization";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +72,8 @@ const App = () => {
             <Route path="/sku-optimization" element={<SKUOptimization />} />
             <Route path="/imageALT-optimization" element={<ImageAltOptimization />} />
             <Route path="/imageName-optimization" element={<ImageNameOptimization />} />
+            <Route path="/productType-optimization" element={<ProductTypeOptimization />} />
+            <Route path="/vendor-optimization" element={<VendorOptimization />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
