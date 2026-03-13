@@ -21,6 +21,8 @@ import ImageAltOptimization from "./pages/Imagealtoptimization";
 import ImageNameOptimization from "./pages/ImageNameOptimization";
 import ProductTypeOptimization from "./pages/ProductTypeOptimization";
 import VendorOptimization from "./pages/VendorOptimization";
+import SmartCollectionBuilder from "./pages/CollectionBuilder";
+import TagOptimization from "./pages/tagOptimization";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +76,8 @@ const App = () => {
             <Route path="/imageName-optimization" element={<ImageNameOptimization />} />
             <Route path="/productType-optimization" element={<ProductTypeOptimization />} />
             <Route path="/vendor-optimization" element={<VendorOptimization />} />
+            <Route path="/collection-optimization" element={<SmartCollectionBuilder />} />
+            <Route path="/tag-optimization" element={<TagOptimization />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

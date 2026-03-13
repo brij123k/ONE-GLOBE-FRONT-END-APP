@@ -22,6 +22,8 @@ const ApiConfig = {
   getStoredImageNameProduct:`${BASE_URL}/api/optimization/products?serviceName=imageName`,
   getStoredProductType:`${BASE_URL}/api/optimization/products?serviceName=productType`,
   getStoredVendor:`${BASE_URL}/api/optimization/products?serviceName=vendor`,
+  getStoredCollectionProduct:`${BASE_URL}/api/optimization/products?serviceName=collection`,
+  getStoredTagsProduct:`${BASE_URL}/api/optimization/products?serviceName=tag`,
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
@@ -61,6 +63,18 @@ const ApiConfig = {
 
   // vendor
   updateVendor:`${BASE_URL}/api/vendor/update`,
+
+  // collection builder
+  getCollectiononly:`${BASE_URL}/collection-builder/collections`,
+  getSelectedProductCollection:`${BASE_URL}/collection-builder/product-collections`,
+  aiOptimization:`${BASE_URL}/collection-builder/analyze-category`,
+  createCollection:`${BASE_URL}/collection-builder/create-collection`,
+  addProductToCollection:`${BASE_URL}/collection-builder/add-products`,
+
+
+  //tags builder
+  aitagOptimization:`${BASE_URL}/tags-builder/analyze-tags`,
+  addtagsProducts:`${BASE_URL}/tags-builder/add-tags`,
   // revert funtion
   getRevertOptimizations:`${BASE_URL}/reviert`,
   saveRevertOptimizations:`${BASE_URL}/reviert/save`,

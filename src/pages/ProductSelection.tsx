@@ -935,6 +935,7 @@ const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
     </p>
   </div>
   <div className="flex items-center gap-3">
+    {service!=="collection" && service!=="tag" &&(
       <Button
         onClick={() => setIsRevertModalOpen(true)}
         variant="outline"
@@ -943,6 +944,8 @@ const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
         <RotateCcw className="w-4 h-4" />
         Revert Last Optimizations
       </Button>
+    )}
+      
     
     <Button
       onClick={handleContinue}
@@ -2152,6 +2155,7 @@ const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
   
   <div className="flex items-center gap-2">
     {/* Revert Last Optimizations Button */}
+     {service!=="collection" && service!=="tag" &&(
     <button
       onClick={() => setIsRevertModalOpen(true)}
       className="flex items-center gap-1.5 bg-transparent hover:bg-white/10 rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-white/20 hover:border-white/40"
@@ -2159,6 +2163,7 @@ const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
       <RotateCcw className="w-4 h-4" />
       Revert Last
     </button>
+     )}
 
     <button
       onClick={handleContinue}
