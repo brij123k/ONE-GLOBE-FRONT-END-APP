@@ -24,6 +24,7 @@ const ApiConfig = {
   getStoredVendor:`${BASE_URL}/api/optimization/products?serviceName=vendor`,
   getStoredCollectionProduct:`${BASE_URL}/api/optimization/products?serviceName=collection`,
   getStoredTagsProduct:`${BASE_URL}/api/optimization/products?serviceName=tag`,
+  getStoredSpecificationProduct:`${BASE_URL}/api/optimization/products?serviceName=specification`,
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,
@@ -75,6 +76,13 @@ const ApiConfig = {
   //tags builder
   aitagOptimization:`${BASE_URL}/tags-builder/analyze-tags`,
   addtagsProducts:`${BASE_URL}/tags-builder/add-tags`,
+
+  // specification
+  aispecification:`${BASE_URL}/specification/analyze-image`,
+  updateSpeficiationProduct:`${BASE_URL}/specification/update-specification`,
+  getMetaFields:`${BASE_URL}/specification/metafields`,
+  createMetaFields:`${BASE_URL}/specification/create-metafield`,
+  isSpecificationExsist:`${BASE_URL}/specification/check-specification-metafield`,
   // revert funtion
   getRevertOptimizations:`${BASE_URL}/reviert`,
   saveRevertOptimizations:`${BASE_URL}/reviert/save`,

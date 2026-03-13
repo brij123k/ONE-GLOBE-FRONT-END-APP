@@ -23,6 +23,7 @@ import ProductTypeOptimization from "./pages/ProductTypeOptimization";
 import VendorOptimization from "./pages/VendorOptimization";
 import SmartCollectionBuilder from "./pages/CollectionBuilder";
 import TagOptimization from "./pages/tagOptimization";
+import SpecificationOptimization from "./pages/SpecificationOptimization";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => {
             <Route path="/vendor-optimization" element={<VendorOptimization />} />
             <Route path="/collection-optimization" element={<SmartCollectionBuilder />} />
             <Route path="/tag-optimization" element={<TagOptimization />} />
+            <Route path="/specification-optimization" element={<SpecificationOptimization />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
