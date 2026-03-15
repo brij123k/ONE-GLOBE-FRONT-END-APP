@@ -25,6 +25,7 @@ const ApiConfig = {
   getStoredCollectionProduct:`${BASE_URL}/api/optimization/products?serviceName=collection`,
   getStoredTagsProduct:`${BASE_URL}/api/optimization/products?serviceName=tag`,
   getStoredSpecificationProduct:`${BASE_URL}/api/optimization/products?serviceName=specification`,
+  getMetafieldsProducts:`${BASE_URL}/api/optimization/products?serviceName=metafields`,
 
   getStoredImageProduct:`${BASE_URL}/api/optimization/products?serviceName=image`,
   aiTitleOptimization:`${BASE_URL}/api/optimization/ai/title`,

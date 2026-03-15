@@ -40,7 +40,21 @@ interface Product {
   variants: {
     edges: Array<{
       node: {
+        id: string;
         sku: string | null;
+
+        price: string | null;
+
+        compareAtPrice: string | null;
+
+        inventoryQuantity?: number;
+
+        inventoryItem?: {
+          unitCost?: {
+            amount: string;
+            currencyCode: string;
+          } | null;
+        };
       };
     }>;
   };
@@ -111,22 +125,38 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
 
   const variant = product.variants.edges[0]?.node;
   const sku = variant?.sku || 'No SKU';
+  const price = variant?.price ? parseFloat(variant.price) : 0;
 
+  const compareAtPrice = variant?.compareAtPrice
+    ? parseFloat(variant.compareAtPrice)
+    : 0;
+
+  const costPrice = variant?.inventoryItem?.unitCost?.amount
+    ? parseFloat(variant.inventoryItem.unitCost.amount)
+    : 0;
+
+  const currency = variant?.inventoryItem?.unitCost?.currencyCode ||
+    product.priceRangeV2.minVariantPrice.currencyCode;
+
+  const profit = price - costPrice;
+
+  const margin = price > 0 ? (profit / price) * 100 : 0;
+  const profitPercentage = costPrice > 0 ? (profit / costPrice) * 100 : 0;
   const handleOptimizeNow = async () => {
     try {
       setIsOptimizing(true);
-      
+
       const payload = {
         serviceName: service,
         productIds: [product.id]
       };
 
       await postApi(ApiConfig.storeProduct, payload);
-      
+
       // Close the modal and navigate to optimization page
       onClose();
       navigate(`/${service}-optimization`);
-      
+
     } catch (error) {
       console.error('Error storing product for optimization:', error);
     } finally {
@@ -612,7 +642,7 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
           </div>
         );
 
-        case 'imageALT':
+      case 'imageALT':
         return (
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-[#6b6862]">Current ImageALT</h3>
@@ -630,15 +660,75 @@ export function ProductDetailModal({ product, isOpen, onClose, service }: Produc
       case 'pricing':
         return (
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-[#6b6862]">Current Price</h3>
-            <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
-              <p className="text-2xl font-bold text-[#1a1917]">
-                {formatPrice(product.priceRangeV2.minVariantPrice.amount, product.priceRangeV2.minVariantPrice.currencyCode)}
-              </p>
+
+            <h3 className="text-sm font-medium text-[#6b6862]">Pricing Details</h3>
+
+            <div className="grid grid-cols-2 gap-4">
+
+              <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                <p className="text-xs text-[#6b6862] mb-1">Price</p>
+                <p className="text-xl font-bold text-[#1a1917]">
+                  {formatPrice(price.toString(), currency)}
+                </p>
+              </div>
+
+              <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                <p className="text-xs text-[#6b6862] mb-1">Cost Price</p>
+                <p className="text-xl font-semibold text-[#1a1917]">
+                  {costPrice ? formatPrice(costPrice.toString(), currency) : "-"}
+                </p>
+              </div>
+
+              <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                <p className="text-xs text-[#6b6862] mb-1">Compare At Price</p>
+                <p className="text-lg text-[#6b6862] line-through">
+                  {compareAtPrice
+                    ? formatPrice(compareAtPrice.toString(), currency)
+                    : "-"}
+                </p>
+              </div>
+
+              <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                <p className="text-xs text-[#6b6862] mb-1">Profit</p>
+                <p className={cn(
+                  "text-xl font-semibold",
+                  profit > 0 ? "text-green-600" : "text-red-600"
+                )}>
+                  {formatPrice(profit.toString(), currency)}
+                </p>
+              </div>
+              <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+  <p className="text-xs text-[#6b6862] mb-1">Profit %</p>
+  <p
+    className={cn(
+      "text-xl font-semibold",
+      profitPercentage >= 50
+        ? "text-green-600"
+        : profitPercentage >= 20
+        ? "text-amber-600"
+        : "text-red-600"
+    )}
+  >
+    {profitPercentage.toFixed(2)}%
+  </p>
+</div>
+
+              <div className="p-4 bg-[#f5f4f1] rounded-lg border border-[#e2e0db]">
+                <p className="text-xs text-[#6b6862] mb-1">Margin</p>
+                <p className={cn(
+                  "text-xl font-semibold",
+                  margin >= 30 ? "text-green-600" : "text-amber-600"
+                )}>
+                  {margin.toFixed(2)}%
+                </p>
+              </div>
+
             </div>
+
             {product.variants.edges.length > 1 && (
               <div className="text-sm text-[#6b6862]">
-                <span className="font-medium">Note:</span> This product has {product.variants.edges.length} variants with different prices
+                <span className="font-medium">Note:</span> This product has{" "}
+                {product.variants.edges.length} variants with different prices.
               </div>
             )}
           </div>

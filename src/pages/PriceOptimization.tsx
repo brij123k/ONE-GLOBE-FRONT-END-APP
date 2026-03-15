@@ -523,7 +523,7 @@ export default function PriceOptimization() {
                 </TabsList>
                 <TabsContent value="fixed" className="pt-4">
                   <div className="max-w-xs">
-                    <Label htmlFor="fixedProfit">Profit Amount ($)</Label>
+                    <Label htmlFor="fixedProfit">Profit Amount (%)</Label>
                     <Input
                       id="fixedProfit"
                       type="number"
@@ -538,7 +538,7 @@ export default function PriceOptimization() {
                 <TabsContent value="range" className="pt-4 space-y-4">
                   <div className="grid grid-cols-2 gap-4 max-w-md">
                     <div>
-                      <Label htmlFor="minProfit">Min Profit ($)</Label>
+                      <Label htmlFor="minProfit">Min Profit (%)</Label>
                       <Input
                         id="minProfit"
                         type="number"
@@ -550,7 +550,7 @@ export default function PriceOptimization() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="maxProfit">Max Profit ($)</Label>
+                      <Label htmlFor="maxProfit">Max Profit (%)</Label>
                       <Input
                         id="maxProfit"
                         type="number"
