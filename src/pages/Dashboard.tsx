@@ -147,14 +147,14 @@ const optimizationTools = [
     path: "/products?service=specification",
     category: "advanced",
   },
-  // {
-  //   icon: Database,
-  //   title: "Metafields Management",
-  //   description: "Optimize custom metafields for enhanced product data.",
-  //   path: "/products?service=metafields",
-  //   category: "advanced",
-  //   popular: true,
-  // },
+  {
+    icon: Database,
+    title: "Metafields Management",
+    description: "Optimize custom metafields for enhanced product data.",
+    path: "/products?service=metafields",
+    category: "advanced",
+    popular: true,
+  },
   // {
   //   icon: Box,
   //   title: "Bulk Product Editor",

@@ -24,6 +24,7 @@ import VendorOptimization from "./pages/VendorOptimization";
 import SmartCollectionBuilder from "./pages/CollectionBuilder";
 import TagOptimization from "./pages/tagOptimization";
 import SpecificationOptimization from "./pages/SpecificationOptimization";
+import MetafieldsManager from "./pages/Metafieldsmanager";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => {
             <Route path="/collection-optimization" element={<SmartCollectionBuilder />} />
             <Route path="/tag-optimization" element={<TagOptimization />} />
             <Route path="/specification-optimization" element={<SpecificationOptimization />} />
+            <Route path="/metafields-optimization" element={<MetafieldsManager />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

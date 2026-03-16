@@ -120,7 +120,7 @@ const navSections = [
     title: "Advanced Tools",
     items: [
       { icon: Settings, label: "Specifications", path: "/products?service=specification" },
-      // { icon: Database, label: "Metafields", path: "/products?service=metafields", popular: true },
+      { icon: Database, label: "Metafields", path: "/products?service=metafields", popular: true },
       // { icon: Code, label: "JSON-LD Schema", path: "/schema-optimization" },
       // { icon: Zap, label: "Bulk Editor", path: "/bulk-editor" },
       // { icon: Rocket, label: "Bulk Publishing", path: "/bulk-publish" },

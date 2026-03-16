@@ -84,6 +84,11 @@ const ApiConfig = {
   getMetaFields:`${BASE_URL}/specification/metafields`,
   createMetaFields:`${BASE_URL}/specification/create-metafield`,
   isSpecificationExsist:`${BASE_URL}/specification/check-specification-metafield`,
+
+  // metfields
+  checkMetafields:`${BASE_URL}/specification/check--metafield,`,
+  addProductsValue:`${BASE_URL}/specification/add-product-metafield`,
+  aikeywordAnalyzer:`${BASE_URL}/specification/metafields/analyze`,
   // revert funtion
   getRevertOptimizations:`${BASE_URL}/reviert`,
   saveRevertOptimizations:`${BASE_URL}/reviert/save`,
