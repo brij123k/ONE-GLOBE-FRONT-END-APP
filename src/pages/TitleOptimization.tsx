@@ -255,6 +255,15 @@ const tones = [
 
 type TabType = "ai" | "existing" | "custom";
 
+interface OptimizationContextChoice {
+  image: boolean;
+  title: boolean;
+}
+
+type PendingOptimization =
+  | { type: "bulk"; format: AIFormat; applyNow: boolean }
+  | { type: "single"; format: AIFormat; product: Product };
+
 function CharLengthBar({ length, max = 100 }: { length: number; max?: number }) {
   const pct = Math.min(100, (length / max) * 100);
   const color = length < 35 ? "#f59e0b" : length > 85 ? "#ef4444" : "#16a34a";
@@ -286,6 +295,9 @@ export default function TitleOptimization() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [pendingOptimization, setPendingOptimization] = useState<PendingOptimization | null>(null);
+  const [contextChoice, setContextChoice] = useState<OptimizationContextChoice>({ image: true, title: true });
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResult[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
   const [stats, setStats] = useState({ averageLength: 0, seoScore: 0, keywordDensity: 0, improvement: 0 });
@@ -368,8 +380,41 @@ export default function TitleOptimization() {
     }
   };
 
-  const handleAIOptimization = async (applyNow = false) => {
-    if (!selectedFormat || products.length === 0) return;
+  const requestAIOptimization = (format: AIFormat, applyNow = false) => {
+    if (!format || products.length === 0) return;
+    setPendingOptimization({ type: "bulk", format, applyNow });
+    setContextChoice({ image: true, title: true });
+    setShowContextModal(true);
+  };
+
+  const requestSingleProductOptimize = (product: Product) => {
+    if (!selectedFormat) return;
+    setPendingOptimization({ type: "single", format: selectedFormat, product });
+    setContextChoice({ image: true, title: true });
+    setShowContextModal(true);
+  };
+
+  const confirmOptimizationContext = () => {
+    if (!pendingOptimization || (!contextChoice.image && !contextChoice.title)) return;
+    const optimization = pendingOptimization;
+    const selectedContext = { ...contextChoice };
+    setShowContextModal(false);
+    setPendingOptimization(null);
+
+    if (optimization.type === "bulk") {
+      handleAIOptimization(optimization.format, optimization.applyNow, selectedContext);
+      return;
+    }
+
+    handleSingleProductOptimize(optimization.product, optimization.format, selectedContext);
+  };
+
+  const handleAIOptimization = async (
+    format: AIFormat,
+    applyNow = false,
+    selectedContext: OptimizationContextChoice = { image: true, title: true }
+  ) => {
+    if (!format || products.length === 0) return;
     setShowProgressModal(true);
     setProgress({ current: 0, total: products.length, status: "Starting AI optimization..." });
     const results: OptimizationResult[] = [];
@@ -379,18 +424,20 @@ export default function TitleOptimization() {
       try {
         const payload = {
           productId: product.productId,
-          categoryName: selectedFormat.categoryName,
-          minCharacters: selectedFormat.minCharacters,
-          maxCharacters: selectedFormat.maxCharacters,
-          primaryElement: selectedFormat.primaryElement,
-          secondaryElement: selectedFormat.secondaryElement,
-          thirdElement: selectedFormat.thirdElement !== "none" ? selectedFormat.thirdElement : "",
-          fourthElement: selectedFormat.fourthElement !== "none" ? selectedFormat.fourthElement : "",
-          formulaPattern: buildFormulaPattern(selectedFormat),
-          brandFocused: selectedFormat.brandFocused,
-          tone: selectedFormat.tone,
-          mustIncludeKeywords: selectedFormat.mustIncludeKeywords.join(","),
-          excludeKeywords: selectedFormat.excludeKeywords.join(","),
+          categoryName: format.categoryName,
+          minCharacters: format.minCharacters,
+          maxCharacters: format.maxCharacters,
+          primaryElement: format.primaryElement,
+          secondaryElement: format.secondaryElement,
+          thirdElement: format.thirdElement !== "none" ? format.thirdElement : "",
+          fourthElement: format.fourthElement !== "none" ? format.fourthElement : "",
+          formulaPattern: buildFormulaPattern(format),
+          brandFocused: format.brandFocused,
+          tone: format.tone,
+          mustIncludeKeywords: format.mustIncludeKeywords.join(","),
+          excludeKeywords: format.excludeKeywords.join(","),
+          image: selectedContext.image,
+          title: selectedContext.title,
           apply: applyNow,
         };
         const response = await postApi(ApiConfig.aiTitleOptimization, payload);
@@ -472,25 +519,31 @@ export default function TitleOptimization() {
     setShowSuccessModal(true);
   };
 
-  const handleSingleProductOptimize = async (product: Product) => {
-    if (!selectedFormat) return;
+  const handleSingleProductOptimize = async (
+    product: Product,
+    format: AIFormat,
+    selectedContext: OptimizationContextChoice = { image: true, title: true }
+  ) => {
+    if (!format) return;
     setShowProgressModal(true);
     setProgress({ current: 0, total: 1, status: `Optimizing: ${product.title}` });
     try {
       const payload = {
         productId: product.productId,
-        categoryName: selectedFormat.categoryName,
-        minCharacters: selectedFormat.minCharacters,
-        maxCharacters: selectedFormat.maxCharacters,
-        primaryElement: selectedFormat.primaryElement,
-        secondaryElement: selectedFormat.secondaryElement,
-        thirdElement: selectedFormat.thirdElement !== "none" ? selectedFormat.thirdElement : "",
-        fourthElement: selectedFormat.fourthElement !== "none" ? selectedFormat.fourthElement : "",
-        formulaPattern: buildFormulaPattern(selectedFormat),
-        brandFocused: selectedFormat.brandFocused,
-        tone: selectedFormat.tone,
-        mustIncludeKeywords: selectedFormat.mustIncludeKeywords.join(","),
-        excludeKeywords: selectedFormat.excludeKeywords.join(","),
+        categoryName: format.categoryName,
+        minCharacters: format.minCharacters,
+        maxCharacters: format.maxCharacters,
+        primaryElement: format.primaryElement,
+        secondaryElement: format.secondaryElement,
+        thirdElement: format.thirdElement !== "none" ? format.thirdElement : "",
+        fourthElement: format.fourthElement !== "none" ? format.fourthElement : "",
+        formulaPattern: buildFormulaPattern(format),
+        brandFocused: format.brandFocused,
+        tone: format.tone,
+        mustIncludeKeywords: format.mustIncludeKeywords.join(","),
+        excludeKeywords: format.excludeKeywords.join(","),
+        image: selectedContext.image,
+        title: selectedContext.title,
         apply: false,
       };
       const response = await postApi(ApiConfig.aiTitleOptimization, payload);
@@ -514,13 +567,18 @@ export default function TitleOptimization() {
     }
   };
 
+  const getPositiveImprovement = (oldValue: number, newValue: number) => {
+    if (oldValue <= 0) return 0;
+    return Math.abs(Math.round(((newValue - oldValue) / oldValue) * 100));
+  };
+
   const calculateComparisonStats = (results: OptimizationResult[]) => {
     if (results.length === 0) return;
     const avgOldLength = results.reduce((sum, r) => sum + r.oldTitle.length, 0) / results.length;
     const avgNewLength = results.reduce((sum, r) => sum + r.newTitle.length, 0) / results.length;
     const seoScore = Math.min(100, Math.round((avgNewLength / 80) * 100));
     const keywordDensity = Math.min(100, Math.round((results.filter((r) => r.newTitle.toLowerCase().includes(r.oldTitle.toLowerCase().split(" ")[0])).length / results.length) * 100));
-    const improvement = Math.round(((avgNewLength - avgOldLength) / avgOldLength) * 100);
+    const improvement = getPositiveImprovement(avgOldLength, avgNewLength);
     setStats({ averageLength: Math.round(avgNewLength), seoScore, keywordDensity, improvement });
   };
 
@@ -946,14 +1004,14 @@ export default function TitleOptimization() {
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
                   <button
-                    onClick={() => handleAIOptimization(false)}
+                    onClick={() => requestAIOptimization(selectedFormat, false)}
                     disabled={!hasProductName(selectedFormat)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                   >
                     <Play className="w-3.5 h-3.5" /> Generate AI Titles
                   </button>
                   <button
-                    onClick={() => handleAIOptimization(true)}
+                    onClick={() => requestAIOptimization(selectedFormat, true)}
                     disabled={!hasProductName(selectedFormat)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                   >
@@ -1008,7 +1066,7 @@ export default function TitleOptimization() {
                           <CharLengthBar length={product.title.length} max={100} />
                           <StatusBadge length={product.title.length} />
                           <button
-                            onClick={() => handleSingleProductOptimize(product)}
+                            onClick={() => requestSingleProductOptimize(product)}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-800 text-white text-[11px] font-bold transition-all whitespace-nowrap"
                           >
                             <ArrowRight className="w-2.5 h-2.5" /> Optimize
@@ -1204,14 +1262,14 @@ export default function TitleOptimization() {
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
                   <button
-                    onClick={() => { setSelectedFormat(customFormula); handleAIOptimization(false); }}
+                    onClick={() => { setSelectedFormat(customFormula); requestAIOptimization(customFormula, false); }}
                     disabled={!hasProductName(customFormula)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Play className="w-3.5 h-3.5" /> Generate AI Titles
                   </button>
                   <button
-                    onClick={() => { setSelectedFormat(customFormula); handleAIOptimization(true); }}
+                    onClick={() => { setSelectedFormat(customFormula); requestAIOptimization(customFormula, true); }}
                     disabled={!hasProductName(customFormula)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
                   >
@@ -1325,26 +1383,6 @@ export default function TitleOptimization() {
         </div>
       </div>
 
-      {/* ── FLOATING BAR ── */}
-      {/* <div
-        className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1a2e] rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-2xl z-50 transition-all duration-500 whitespace-nowrap min-w-[480px]
-          ${floatBarVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-20 pointer-events-none"}`}
-        style={{ transform: `translateX(-50%) translateY(${floatBarVisible ? "0" : "80px"})` }}
-      >
-        <div className="text-white text-[14px] font-bold">
-          <span className="text-white/50 font-medium text-[13.5px]">{selectedFormat.categoryName}</span> selected
-          <span className="text-white/50 font-normal"> · Ready for Title Optimization</span>
-        </div>
-        <button
-          onClick={() => handleAIOptimization(false)}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5 py-2.5 font-extrabold text-[14px] shadow-lg shadow-purple-700/40 transition-all hover:-translate-y-px ml-auto"
-        >
-          Continue to Optimization <ArrowRight className="w-4 h-4" />
-        </button>
-        <button onClick={() => setFloatBarVisible(false)} className="text-white/40 hover:text-white/80 bg-transparent border-none text-[13px] font-semibold cursor-pointer transition-colors">
-          Clear
-        </button>
-      </div> */}
 
       {/* ── EXAMPLE MODAL ── */}
       {showExampleModal && exampleFormat && exampleFormatData && (
@@ -1372,6 +1410,95 @@ export default function TitleOptimization() {
           </div>
         </div>
       )}
+
+      {/* Context Choice Modal */}
+      <Dialog
+        open={showContextModal}
+        onOpenChange={(open) => {
+          setShowContextModal(open);
+          if (!open) setPendingOptimization(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-blue-500" />
+              Choose AI Input
+            </DialogTitle>
+            <DialogDescription>
+              Select what the AI should use before optimizing your product title.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setContextChoice({ image: true, title: false })}
+              className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                contextChoice.image && !contextChoice.title
+                  ? "border-blue-600 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Package className="w-4 h-4 text-blue-600" />
+                {contextChoice.image && !contextChoice.title && <CheckCircle className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Image</p>
+              <p className="text-[11.5px] text-gray-500 mt-1">Create titles from product visuals.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setContextChoice({ image: false, title: true })}
+              className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                !contextChoice.image && contextChoice.title
+                  ? "border-blue-600 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Search className="w-4 h-4 text-blue-600" />
+                {!contextChoice.image && contextChoice.title && <CheckCircle className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Old Title</p>
+              <p className="text-[11.5px] text-gray-500 mt-1">Improve the existing product title.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setContextChoice({ image: true, title: true })}
+              className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                contextChoice.image && contextChoice.title
+                  ? "border-blue-600 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                {contextChoice.image && contextChoice.title && <CheckCircle className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Both</p>
+              <p className="text-[11.5px] text-gray-500 mt-1">Blend visual context with the old title.</p>
+            </button>
+          </div>
+
+          <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+            <p className="text-[11.5px] font-semibold text-gray-600">
+              Backend payload: image: {String(contextChoice.image)}, title: {String(contextChoice.title)}
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowContextModal(false); setPendingOptimization(null); }}>
+              Cancel
+            </Button>
+            <Button onClick={confirmOptimizationContext} className="bg-blue-600 hover:bg-blue-800 gap-2">
+              Continue <ArrowRight className="w-4 h-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Progress Modal */}
       <Dialog open={showProgressModal} onOpenChange={setShowProgressModal}>
@@ -1461,7 +1588,7 @@ export default function TitleOptimization() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <Card><CardContent className="pt-6">
-                <div className="text-3xl font-bold text-center text-gray-900">{stats.improvement > 0 ? "+" : ""}{stats.improvement}%</div>
+                <div className="text-3xl font-bold text-center text-gray-900">+{stats.improvement}%</div>
                 <p className="text-sm text-center text-gray-600 mt-1">SEO Improvement</p>
               </CardContent></Card>
               <Card><CardContent className="pt-6">
@@ -1470,7 +1597,7 @@ export default function TitleOptimization() {
               </CardContent></Card>
             </div>
             <div className="text-center">
-              <p className="text-gray-700"><span className="font-semibold">Your new titles are {Math.abs(stats.improvement)}% better</span> than before and optimized for search engines.</p>
+              <p className="text-gray-700"><span className="font-semibold">Your new titles are {stats.improvement}% better</span> than before and optimized for search engines.</p>
               <p className="text-sm text-gray-500 mt-2">Expected click-through rate increase: <span className="font-medium text-green-600">Up to 73%</span></p>
             </div>
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
