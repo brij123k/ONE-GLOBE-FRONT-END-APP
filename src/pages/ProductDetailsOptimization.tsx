@@ -106,12 +106,12 @@ const formulas: Array<{
   scope: ScopeChoice;
   icon: JSX.Element;
 }> = [
-  {
-    id: "complete",
-    name: "Complete Product SEO",
-    description: "Optimize title, description, meta fields, handle, image alt text, and image name.",
-    scope: { image: true, title: true, description: true },
-    icon: <Sparkles className="w-4 h-4 text-blue-700" />,
+    {
+    id: "image_seo",
+    name: "Image SEO",
+    description: "Analyze product images and improve alt text plus image filenames.",
+    scope: { image: true, title: false, description: false },
+    icon: <Image className="w-4 h-4 text-blue-700" />,
   },
   {
     id: "content",
@@ -121,11 +121,11 @@ const formulas: Array<{
     icon: <FileText className="w-4 h-4 text-blue-700" />,
   },
   {
-    id: "image_seo",
-    name: "Image SEO",
-    description: "Analyze product images and improve alt text plus image filenames.",
-    scope: { image: true, title: false, description: false },
-    icon: <Image className="w-4 h-4 text-blue-700" />,
+    id: "complete",
+    name: "Complete Product SEO",
+    description: "Optimize title, description, meta fields, handle, image alt text, and image name.",
+    scope: { image: true, title: true, description: true },
+    icon: <Sparkles className="w-4 h-4 text-blue-700" />,
   },
 ];
 
@@ -158,8 +158,8 @@ export default function ProductDetailsOptimization() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<DetailProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFormulaId, setSelectedFormulaId] = useState("complete");
-  const [scope, setScope] = useState<ScopeChoice>({ image: true, title: true, description: true });
+  const [selectedFormulaId, setSelectedFormulaId] = useState("image_seo");
+  const [scope, setScope] = useState<ScopeChoice>({ image: true, title: false, description: false });
   const [results, setResults] = useState<DetailOptimizationResult[]>([]);
   const [saveResults, setSaveResults] = useState<SaveResult[]>([]);
   const [showProgressModal, setShowProgressModal] = useState(false);
