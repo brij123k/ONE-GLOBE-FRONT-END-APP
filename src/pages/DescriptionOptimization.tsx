@@ -56,6 +56,15 @@ export interface AIFormat {
   allowCustom?: boolean;
 }
 
+interface OptimizationContextChoice {
+  image: boolean;
+  description: boolean;
+}
+
+type PendingOptimization =
+  | { type: "bulk"; format: AIFormat; tone: string; include: string; exclude: string; length: number; applyNow: boolean; blockInputs: Partial<Record<AIBlockType, string>> }
+  | { type: "single"; format: AIFormat; product: Product; tone: string; include: string; exclude: string; length: number; blockInputs: Partial<Record<AIBlockType, string>> };
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const blockTypeLabels: Record<AIBlockType, string> = {
@@ -230,6 +239,11 @@ export default function DescriptionOptimization() {
   const [exampleFormatId, setExampleFormatId]   = useState<string | null>(null);
   const [floatBarVisible, setFloatBarVisible]   = useState(true);
 
+  // Context modal state
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [pendingOptimization, setPendingOptimization] = useState<PendingOptimization | null>(null);
+  const [contextChoice, setContextChoice] = useState<OptimizationContextChoice>({ image: true, description: true });
+
   // Customise strip state (AI tab)
   const [selectedTone, setSelectedTone]       = useState(tones[0]);
   const [includeKeywords, setIncludeKeywords] = useState("");
@@ -346,12 +360,91 @@ export default function DescriptionOptimization() {
     setTimeout(() => setSavedBanner(null), 3000);
   };
 
+  // ── Context Modal Handlers ───────────────────────────────────────────────────
+
+  const requestAIOptimization = (
+    format: AIFormat,
+    tone: string,
+    include: string,
+    exclude: string,
+    length: number,
+    applyNow: boolean,
+    bInputs: Partial<Record<AIBlockType, string>> = {}
+  ) => {
+    if (products.length === 0) return;
+    setPendingOptimization({
+      type: "bulk",
+      format,
+      tone,
+      include,
+      exclude,
+      length,
+      applyNow,
+      blockInputs: bInputs,
+    });
+    setContextChoice({ image: true, description: true });
+    setShowContextModal(true);
+  };
+
+  const requestSingleProductOptimize = (product: Product) => {
+    if (!selectedFormat) return;
+    setPendingOptimization({
+      type: "single",
+      format: selectedFormat,
+      product,
+      tone: selectedTone,
+      include: includeKeywords,
+      exclude: excludeKeywords,
+      length: targetLength,
+      blockInputs,
+    });
+    setContextChoice({ image: true, description: true });
+    setShowContextModal(true);
+  };
+
+  const confirmOptimizationContext = () => {
+    if (!pendingOptimization || (!contextChoice.image && !contextChoice.description)) return;
+    const optimization = pendingOptimization;
+    const selectedContext = { ...contextChoice };
+    setShowContextModal(false);
+    setPendingOptimization(null);
+
+    if (optimization.type === "bulk") {
+      runAIOptimization(
+        optimization.format,
+        optimization.tone,
+        optimization.include,
+        optimization.exclude,
+        optimization.length,
+        optimization.applyNow,
+        optimization.blockInputs,
+        selectedContext
+      );
+    } else {
+      runSingleProductOptimization(
+        optimization.product,
+        optimization.format,
+        optimization.tone,
+        optimization.include,
+        optimization.exclude,
+        optimization.length,
+        optimization.blockInputs,
+        selectedContext
+      );
+    }
+  };
+
   // ── AI Optimization ───────────────────────────────────────────────────────────
 
   const runAIOptimization = async (
-    fmt: AIFormat, tone: string, include: string, exclude: string,
-    length: number, applyNow: boolean,
-    bInputs: Partial<Record<AIBlockType, string>> = {}
+    fmt: AIFormat,
+    tone: string,
+    include: string,
+    exclude: string,
+    length: number,
+    applyNow: boolean,
+    bInputs: Partial<Record<AIBlockType, string>> = {},
+    selectedContext: OptimizationContextChoice = { image: true, description: true }
   ) => {
     if (products.length === 0) return;
     setShowProgressModal(true);
@@ -374,6 +467,8 @@ export default function DescriptionOptimization() {
           brandContext: brandContextEnabled && brandContext.trim() ? brandContext.trim() : "",
           blockInputs: Object.fromEntries(Object.entries(bInputs).filter(([, v]) => v && v.trim())),
           apply: applyNow,
+          image: selectedContext.image,
+          description: selectedContext.description,
         };
         const response = await postApi(ApiConfig.aiDescriptionOptimization, payload);
         if (applyNow) {
@@ -398,34 +493,33 @@ export default function DescriptionOptimization() {
     }
   };
 
-  const handleAITabOptimize = (applyNow = false) => {
-    const finalBlocks = buildFinalBlocks(slot1, slot2, slot3, slot4, selectedFormat.blocks.map(b => b.type), extraBlocks);
-    const fmt: AIFormat = { ...selectedFormat, blocks: finalBlocks.map(t => ({ type: t, required: true })) };
-    runAIOptimization(fmt, selectedTone, includeKeywords, excludeKeywords, targetLength, applyNow, blockInputs);
-  };
-
-  const handleCustomTabOptimize = (applyNow = false) => {
-    const fmt = buildCustomAIFormat();
-    setSelectedFormat(fmt);
-    runAIOptimization(fmt, customTone, customInclude, customExclude, customTargetLength, applyNow, blockInputs);
-  };
-
-  const handleSingleProductOptimize = async (product: Product) => {
+  const runSingleProductOptimization = async (
+    product: Product,
+    fmt: AIFormat,
+    tone: string,
+    include: string,
+    exclude: string,
+    length: number,
+    bInputs: Partial<Record<AIBlockType, string>> = {},
+    selectedContext: OptimizationContextChoice = { image: true, description: true }
+  ) => {
     setShowProgressModal(true);
     setProgress({ current: 0, total: 1, status: `Optimizing: ${product.title || "product"}...` });
     try {
       const payload = {
         productId: product.productId,
-        formatId: selectedFormat.id,
-        formatName: selectedFormat.name,
-        blocks: selectedFormat.blocks.map(b => b.type),
-        tone: selectedTone,
-        includeKeywords: includeKeywords.split(",").map(k => k.trim()).filter(Boolean),
-        excludeKeywords: excludeKeywords.split(",").map(k => k.trim()).filter(Boolean),
-        targetLength,
+        formatId: fmt.id,
+        formatName: fmt.name,
+        blocks: fmt.blocks.map(b => b.type),
+        tone,
+        includeKeywords: include.split(",").map(k => k.trim()).filter(Boolean),
+        excludeKeywords: exclude.split(",").map(k => k.trim()).filter(Boolean),
+        targetLength: length,
         brandContext: brandContextEnabled && brandContext.trim() ? brandContext.trim() : "",
-        blockInputs: Object.fromEntries(Object.entries(blockInputs).filter(([, v]) => v && v.trim())),
+        blockInputs: Object.fromEntries(Object.entries(bInputs).filter(([, v]) => v && v.trim())),
         apply: false,
+        image: selectedContext.image,
+        description: selectedContext.description,
       };
       const response = await postApi(ApiConfig.aiDescriptionOptimization, payload);
       if (response.newDescription) {
@@ -435,6 +529,18 @@ export default function DescriptionOptimization() {
         setShowPreviewModal(true);
       } else { setShowProgressModal(false); }
     } catch { setShowProgressModal(false); }
+  };
+
+  const handleAITabOptimize = (applyNow = false) => {
+    const finalBlocks = buildFinalBlocks(slot1, slot2, slot3, slot4, selectedFormat.blocks.map(b => b.type), extraBlocks);
+    const fmt: AIFormat = { ...selectedFormat, blocks: finalBlocks.map(t => ({ type: t, required: true })) };
+    requestAIOptimization(fmt, selectedTone, includeKeywords, excludeKeywords, targetLength, applyNow, blockInputs);
+  };
+
+  const handleCustomTabOptimize = (applyNow = false) => {
+    const fmt = buildCustomAIFormat();
+    setSelectedFormat(fmt);
+    requestAIOptimization(fmt, customTone, customInclude, customExclude, customTargetLength, applyNow, blockInputs);
   };
 
   const handleClassicOptimization = async () => {
@@ -887,7 +993,7 @@ export default function DescriptionOptimization() {
                           </div>
                           <CharLengthBar length={product.description?.length || 0} max={1500} />
                           <StatusBadge length={product.description?.length || 0} />
-                          <button onClick={() => handleSingleProductOptimize(product)}
+                          <button onClick={() => requestSingleProductOptimize(product)}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-800 text-white text-[11px] font-bold transition-all whitespace-nowrap">
                             <ArrowRight className="w-2.5 h-2.5" /> Optimise
                           </button>
@@ -1077,19 +1183,94 @@ export default function DescriptionOptimization() {
         </div>
       </div>
 
-      {/* ── FLOATING BAR ── */}
-      {/* <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1a1a2e] rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-2xl z-50 transition-all duration-500 whitespace-nowrap min-w-[500px] ${floatBarVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-20 pointer-events-none"}`}
-        style={{ transform: `translateX(-50%) translateY(${floatBarVisible ? "0" : "80px"})` }}>
-        <div className="text-white text-[14px] font-bold">
-          <span className="text-white/50 font-medium text-[13.5px]">{selectedFormat.name}</span> selected
-          <span className="text-white/50 font-normal"> · Ready for Description Optimisation</span>
-        </div>
-        <button onClick={() => handleAITabOptimize(false)}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5 py-2.5 font-extrabold text-[14px] shadow-lg shadow-purple-700/40 transition-all hover:-translate-y-px ml-auto">
-          Continue to Optimisation <ArrowRight className="w-4 h-4" />
-        </button>
-        <button onClick={() => setFloatBarVisible(false)} className="text-white/40 hover:text-white/80 text-[13px] font-semibold cursor-pointer transition-colors">Clear</button>
-      </div> */}
+      {/* ── CONTEXT MODAL (Image/Old Description) ── */}
+      <Dialog
+        open={showContextModal}
+        onOpenChange={(open) => {
+          setShowContextModal(open);
+          if (!open) setPendingOptimization(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-blue-500" />
+              Choose AI Input
+            </DialogTitle>
+            <DialogDescription>
+              Select what the AI should use before optimizing your product description.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setContextChoice({ image: true, description: false })}
+              className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                contextChoice.image && !contextChoice.description
+                  ? "border-blue-600 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Package className="w-4 h-4 text-blue-600" />
+                {contextChoice.image && !contextChoice.description && <CheckCircle className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Image</p>
+              <p className="text-[11.5px] text-gray-500 mt-1">Create descriptions from product visuals.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setContextChoice({ image: false, description: true })}
+              className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                !contextChoice.image && contextChoice.description
+                  ? "border-blue-600 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <FileText className="w-4 h-4 text-blue-600" />
+                {!contextChoice.image && contextChoice.description && <CheckCircle className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Old Description</p>
+              <p className="text-[11.5px] text-gray-500 mt-1">Improve the existing product description.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setContextChoice({ image: true, description: true })}
+              className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                contextChoice.image && contextChoice.description
+                  ? "border-blue-600 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                {contextChoice.image && contextChoice.description && <CheckCircle className="w-4 h-4 text-blue-600" />}
+              </div>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Both</p>
+              <p className="text-[11.5px] text-gray-500 mt-1">Blend visual context with the old description.</p>
+            </button>
+          </div>
+
+          <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+            <p className="text-[11.5px] font-semibold text-gray-600">
+              Backend payload: image: {String(contextChoice.image)}, description: {String(contextChoice.description)}
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowContextModal(false); setPendingOptimization(null); }}>
+              Cancel
+            </Button>
+            <Button onClick={confirmOptimizationContext} className="bg-blue-600 hover:bg-blue-800 gap-2">
+              Continue <ArrowRight className="w-4 h-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── EXAMPLE MODAL ── */}
       {showExampleModal && exampleFmt && (
@@ -1252,4 +1433,4 @@ export default function DescriptionOptimization() {
       </Dialog>
     </AppLayout>
   );
-} 
+}

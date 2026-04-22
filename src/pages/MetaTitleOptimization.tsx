@@ -28,7 +28,7 @@ interface Product {
   productImage: string;
   handle: string;
   status: string;
-  optimized:boolean;
+  optimized: boolean;
 }
 
 interface OptimizationResult {
@@ -53,6 +53,16 @@ interface MetaFormat {
   mustIncludeKeywords: string[];
   excludeKeywords: string[];
 }
+
+interface OptimizationContextChoice {
+  image: boolean;
+  title: boolean;
+  existingMeta: boolean;
+}
+
+type PendingOptimization =
+  | { type: "bulk"; format: MetaFormat; applyNow: boolean }
+  | { type: "single"; format: MetaFormat; product: Product };
 
 type TabType = "ai" | "existing" | "custom";
 
@@ -215,6 +225,11 @@ export default function MetaTitleOptimization() {
   const [savedTemplateBanner, setSavedTemplateBanner] = useState<string | null>(null);
   const [userTemplates, setUserTemplates] = useState<MetaFormat[]>([]);
 
+  // Context modal state
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [pendingOptimization, setPendingOptimization] = useState<PendingOptimization | null>(null);
+  const [contextChoice, setContextChoice] = useState<OptimizationContextChoice>({ image: true, title: true, existingMeta: true });
+
   // Custom Formula tab — own independent state (same as TitleOptimization pattern)
   const [customFormula, setCustomFormula] = useState<MetaFormat>({
     id: 9000,
@@ -297,15 +312,19 @@ export default function MetaTitleOptimization() {
     return Math.round(score / prods.length);
   };
 
-  const buildPayload = (fmt: MetaFormat, productId: string, productTitle: string, apply: boolean) => ({
+  const getPositiveImprovement = (oldValue: number, newValue: number) => {
+    if (oldValue <= 0) return Math.abs(newValue) * 2; // If empty, give a boost
+    return Math.abs(Math.round(((newValue - oldValue) / oldValue) * 100));
+  };
+
+  const buildPayload = (fmt: MetaFormat, productId: string, productTitle: string, apply: boolean, selectedContext: OptimizationContextChoice) => ({
     productId,
-    productTitle,
     categoryName: fmt.categoryName,
     primaryElement: fmt.primaryElement,
     secondaryElement: fmt.secondaryElement,
     thirdElement: fmt.thirdElement !== "none" ? fmt.thirdElement : "",
     fourthElement: fmt.fourthElement !== "none" ? fmt.fourthElement : "",
-    formulaPattern: buildFormulaPattern(fmt),   // full formula sent directly to API
+    formulaPattern: buildFormulaPattern(fmt),
     tone: fmt.tone,
     brandFocused: fmt.brandFocused,
     minCharacters: fmt.minCharacters,
@@ -313,9 +332,42 @@ export default function MetaTitleOptimization() {
     mustIncludeKeywords: fmt.mustIncludeKeywords.join(","),
     excludeKeywords: fmt.excludeKeywords.join(","),
     apply,
+    image: selectedContext.image,
+    title: selectedContext.title,
+    existingMeta: selectedContext.existingMeta,
   });
 
-  const handleAIOptimization = async (fmt: MetaFormat, applyNow = false) => {
+  // ── Context Modal Handlers ───────────────────────────────────────────────────
+
+  const requestAIOptimization = (format: MetaFormat, applyNow = false) => {
+    if (!format || products.length === 0) return;
+    setPendingOptimization({ type: "bulk", format, applyNow });
+    setContextChoice({ image: true, title: true, existingMeta: true });
+    setShowContextModal(true);
+  };
+
+  const requestSingleProductOptimize = (product: Product) => {
+    if (!selectedFormat) return;
+    setPendingOptimization({ type: "single", format: selectedFormat, product });
+    setContextChoice({ image: true, title: true, existingMeta: true });
+    setShowContextModal(true);
+  };
+
+  const confirmOptimizationContext = () => {
+    if (!pendingOptimization || (!contextChoice.image && !contextChoice.title && !contextChoice.existingMeta)) return;
+    const optimization = pendingOptimization;
+    const selectedContext = { ...contextChoice };
+    setShowContextModal(false);
+    setPendingOptimization(null);
+
+    if (optimization.type === "bulk") {
+      handleAIOptimization(optimization.format, optimization.applyNow, selectedContext);
+    } else {
+      handleSingleOptimize(optimization.product, optimization.format, selectedContext);
+    }
+  };
+
+  const handleAIOptimization = async (fmt: MetaFormat, applyNow = false, selectedContext: OptimizationContextChoice = { image: true, title: true, existingMeta: true }) => {
     if (!fmt || products.length === 0) return;
     setShowProgressModal(true);
     setProgress({ current: 0, total: products.length, status: "Starting AI optimization..." });
@@ -324,7 +376,7 @@ export default function MetaTitleOptimization() {
       const p = products[i];
       setProgress({ current: i + 1, total: products.length, status: `Optimizing: ${p.title}` });
       try {
-        const res = await postApi(ApiConfig.aiMetaTitleOptimization, buildPayload(fmt, p.productId, p.title, applyNow));
+        const res = await postApi(ApiConfig.aiMetaTitleOptimization, buildPayload(fmt, p.productId, p.title, applyNow, selectedContext));
         if (applyNow && res.applied) {
           results.push({ productId: p.productId, oldMetaTitle: res.oldMetaTitle || "(Empty)", newMetaTitle: res.newMetaTitle, characterCount: res.characterCount || 0, image: p.productImage });
         } else if (!applyNow && res.newMetaTitle) {
@@ -347,15 +399,16 @@ export default function MetaTitleOptimization() {
     }
   };
 
-  const handleSingleOptimize = async (product: Product) => {
+  const handleSingleOptimize = async (product: Product, format: MetaFormat = selectedFormat, selectedContext: OptimizationContextChoice = { image: true, title: true, existingMeta: true }) => {
     setShowProgressModal(true);
     setProgress({ current: 0, total: 1, status: `Optimizing: ${product.title}` });
     try {
-      const res = await postApi(ApiConfig.aiMetaTitleOptimization, buildPayload(selectedFormat, product.productId, product.title, false));
+      const res = await postApi(ApiConfig.aiMetaTitleOptimization, buildPayload(format, product.productId, product.title, false, selectedContext));
       if (res.newMetaTitle) {
         setOptimizationResults([{ productId: product.productId, oldMetaTitle: product.metaTitle || "(Empty)", newMetaTitle: res.newMetaTitle, characterCount: res.newMetaTitle.length, image: product.productImage }]);
         setProgress({ current: 1, total: 1, status: "Done" });
         setShowProgressModal(false);
+        calcComparisonStats([{ productId: product.productId, oldMetaTitle: product.metaTitle || "(Empty)", newMetaTitle: res.newMetaTitle, characterCount: res.newMetaTitle.length, image: product.productImage }]);
         setShowPreviewModal(true);
       } else { setShowProgressModal(false); }
     } catch { setShowProgressModal(false); }
@@ -412,10 +465,11 @@ export default function MetaTitleOptimization() {
     if (!results.length) return;
     const avgOld = results.reduce((s, r) => s + (r.oldMetaTitle === "(Empty)" ? 0 : r.oldMetaTitle.length), 0) / results.length;
     const avgNew = results.reduce((s, r) => s + r.newMetaTitle.length, 0) / results.length;
+    const improvement = getPositiveImprovement(avgOld, avgNew);
     setStats({
       averageLength: Math.round(avgNew),
       seoScore: Math.min(100, Math.round((avgNew / 60) * 100)),
-      improvement: Math.round(((avgNew - avgOld) / (avgOld || 1)) * 100),
+      improvement: improvement,
       emptyTitles: results.filter(r => r.oldMetaTitle === "(Empty)").length,
     });
   };
@@ -717,11 +771,11 @@ export default function MetaTitleOptimization() {
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
-                  <button onClick={() => handleAIOptimization(selectedFormat, false)} disabled={!hasRequiredMetaElement(selectedFormat)}
+                  <button onClick={() => requestAIOptimization(selectedFormat, false)} disabled={!hasRequiredMetaElement(selectedFormat)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed">
                     <Play className="w-3.5 h-3.5" /> Generate AI Meta Titles
                   </button>
-                  <button onClick={() => handleAIOptimization(selectedFormat, true)} disabled={!hasRequiredMetaElement(selectedFormat)}
+                  <button onClick={() => requestAIOptimization(selectedFormat, true)} disabled={!hasRequiredMetaElement(selectedFormat)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed">
                     <ArrowRight className="w-3.5 h-3.5" /> Optimize & Apply Directly
                   </button>
@@ -755,7 +809,7 @@ export default function MetaTitleOptimization() {
                           <img src={product.productImage} alt={product.title} className="w-9 h-9 rounded-lg object-cover border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           <div className="min-w-0">
                             <p className="text-[13px] font-semibold text-gray-900 truncate">{product.title}</p>
-                            <p className="text-[11px] text-gray-400 mt-0.5 truncate font-mono">{product.metaTitle || <span className="text-red-400 not-italic font-sans italic">No meta title</span>}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 truncate font-mono">{product.metaTitle || <span className="text-red-400 font-sans italic">No meta title</span>}</p>
                           </div>
                           <MetaLengthBar length={product.metaTitle?.length || 0} max={60} />
                           <MetaStatusBadge length={product.metaTitle?.length || 0} />
@@ -764,7 +818,7 @@ export default function MetaTitleOptimization() {
                               <ArrowLeft className="w-2.5 h-2.5" /> Optimized
                             </button>
                           ) : (
-                            <button onClick={() => handleSingleOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
+                            <button onClick={() => requestSingleProductOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
                               <ArrowRight className="w-2.5 h-2.5" /> Optimize
                             </button>
                           )}
@@ -802,7 +856,9 @@ export default function MetaTitleOptimization() {
                       customFormula.fourthElement !== "none" ? customFormula.fourthElement : null,
                       ].filter(Boolean).map((el, i, arr) => (
                         <span key={i} className="contents">
-                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${["Product Name", "Primary Keyword"].includes(el!) ? "text-white bg-green-700 border border-green-800" : "text-green-800 bg-green-100 border border-green-200"
+                          <span className={`font-mono text-[12px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 ${["Product Name", "Primary Keyword"].includes(el!)
+                              ? "text-white bg-green-700 border border-green-800"
+                              : "text-green-800 bg-green-100 border border-green-200"
                             }`}>
                             {["Product Name", "Primary Keyword"].includes(el!) && <CheckCircle className="w-3 h-3 text-green-300 flex-shrink-0" />}
                             {`{${el}}`}
@@ -899,11 +955,11 @@ export default function MetaTitleOptimization() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
-                  <button onClick={() => { setSelectedFormat(customFormula); handleAIOptimization(customFormula, false); }} disabled={!hasRequiredMetaElement(customFormula)}
+                  <button onClick={() => { setSelectedFormat(customFormula); requestAIOptimization(customFormula, false); }} disabled={!hasRequiredMetaElement(customFormula)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-800 text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     <Play className="w-3.5 h-3.5" /> Generate AI Meta Titles
                   </button>
-                  <button onClick={() => { setSelectedFormat(customFormula); handleAIOptimization(customFormula, true); }} disabled={!hasRequiredMetaElement(customFormula)}
+                  <button onClick={() => { setSelectedFormat(customFormula); requestAIOptimization(customFormula, true); }} disabled={!hasRequiredMetaElement(customFormula)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     <ArrowRight className="w-3.5 h-3.5" /> Optimize & Apply Directly
                   </button>
@@ -1002,6 +1058,163 @@ export default function MetaTitleOptimization() {
             </div>
           </div>
         </div>
+
+        {/* ── CONTEXT MODAL (Image/Title/Existing Meta) ── */}
+        <Dialog
+          open={showContextModal}
+          onOpenChange={(open) => {
+            setShowContextModal(open);
+            if (!open) setPendingOptimization(null);
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-green-500" />
+                Choose AI Input Sources
+              </DialogTitle>
+              <DialogDescription>
+                Select what the AI should use when generating meta titles.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: true, title: false, existingMeta: false })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  contextChoice.image && !contextChoice.title && !contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Package className="w-4 h-4 text-green-600" />
+                  {contextChoice.image && !contextChoice.title && !contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Image Only</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Generate meta titles from product visuals only.</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: false, title: true, existingMeta: false })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  !contextChoice.image && contextChoice.title && !contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <FileText className="w-4 h-4 text-green-600" />
+                  {!contextChoice.image && contextChoice.title && !contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Product Title Only</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Generate meta titles from product titles only.</p>
+              </button>
+
+              {/* <button
+                type="button"
+                onClick={() => setContextChoice({ image: false, title: false, existingMeta: true })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  !contextChoice.image && !contextChoice.title && contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Search className="w-4 h-4 text-green-600" />
+                  {!contextChoice.image && !contextChoice.title && contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Existing Meta Only</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Improve the current meta title.</p>
+              </button> */}
+
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: true, title: true, existingMeta: false })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  contextChoice.image && contextChoice.title && !contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Sparkles className="w-4 h-4 text-green-600" />
+                  {contextChoice.image && contextChoice.title && !contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Both</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Blend visuals with product titles.</p>
+              </button>
+
+              {/* <button
+                type="button"
+                onClick={() => setContextChoice({ image: true, title: false, existingMeta: true })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  contextChoice.image && !contextChoice.title && contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Layers className="w-4 h-4 text-green-600" />
+                  {contextChoice.image && !contextChoice.title && contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Image + Existing Meta</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Enhance current meta with visual context.</p>
+              </button> */}
+{/* 
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: false, title: true, existingMeta: true })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  !contextChoice.image && contextChoice.title && contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <TrendingUp className="w-4 h-4 text-green-600" />
+                  {!contextChoice.image && contextChoice.title && contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Title + Existing Meta</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Combine product title with current meta.</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: true, title: true, existingMeta: true })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all col-span-full ${
+                  contextChoice.image && contextChoice.title && contextChoice.existingMeta
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Brain className="w-4 h-4 text-green-600" />
+                  {contextChoice.image && contextChoice.title && contextChoice.existingMeta && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use All Three (Best Results)</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Combine image, product title, and existing meta for maximum context.</p>
+              </button> */}
+            </div>
+
+            <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+              <p className="text-[11.5px] font-semibold text-gray-600">
+                Backend payload: image: {String(contextChoice.image)}, title: {String(contextChoice.title)}
+              </p>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => { setShowContextModal(false); setPendingOptimization(null); }}>
+                Cancel
+              </Button>
+              <Button onClick={confirmOptimizationContext} className="bg-green-600 hover:bg-green-800 gap-2">
+                Continue <ArrowRight className="w-4 h-4" />
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Example Modal */}
         {showExampleModal && exampleFormatData && exampleTpl && (
@@ -1117,6 +1330,7 @@ export default function MetaTitleOptimization() {
                 <ul className="space-y-1 text-sm text-green-700">
                   <li>✓ SEO-optimized for better search rankings</li><li>✓ Higher click-through rates</li>
                   <li>✓ Perfect length (50–60 characters)</li><li>✓ Your exact formula applied to every product</li>
+                  <li>✓ {stats.improvement}% improvement over original titles</li>
                 </ul>
               </div>
             </div>
@@ -1141,6 +1355,7 @@ export default function MetaTitleOptimization() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Optimization Complete!</h3>
                 <p className="text-gray-600">{progress.current} of {progress.total} meta titles updated.</p>
+                <p className="text-sm text-green-600 mt-1 font-bold">+{stats.improvement}% SEO improvement achieved!</p>
               </div>
               <div className="bg-green-50 border border-green-100 rounded-lg p-4 text-left">
                 <p className="text-sm text-gray-700"><span className="font-semibold">Pro Tip:</span> Monitor Google Search Console in 14–28 days to track your improved rankings.</p>

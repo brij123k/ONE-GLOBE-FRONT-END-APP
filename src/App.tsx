@@ -25,6 +25,7 @@ import SmartCollectionBuilder from "./pages/CollectionBuilder";
 import TagOptimization from "./pages/tagOptimization";
 import SpecificationOptimization from "./pages/SpecificationOptimization";
 import MetafieldsManager from "./pages/Metafieldsmanager";
+import ProductDetailsOptimization from "./pages/ProductDetailsOptimization";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,7 @@ const App = () => {
             <Route path="/sku-optimization" element={<SKUOptimization />} />
             <Route path="/imageALT-optimization" element={<ImageAltOptimization />} />
             <Route path="/imageName-optimization" element={<ImageNameOptimization />} />
+            <Route path="/detail-optimization" element={<ProductDetailsOptimization />} />
             <Route path="/productType-optimization" element={<ProductTypeOptimization />} />
             <Route path="/vendor-optimization" element={<VendorOptimization />} />
             <Route path="/collection-optimization" element={<SmartCollectionBuilder />} />

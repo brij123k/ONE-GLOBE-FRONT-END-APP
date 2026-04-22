@@ -28,7 +28,7 @@ interface Product {
   productImage: string;
   handle: string;
   status: string;
-  optimized?:boolean;
+  optimized?: boolean;
 }
 
 interface OptimizationResult {
@@ -38,6 +38,15 @@ interface OptimizationResult {
   characterCount: number;
   image?: string;
 }
+
+interface OptimizationContextChoice {
+  image: boolean;
+  title: boolean;
+}
+
+type PendingOptimization =
+  | { type: "bulk"; applyNow: boolean }
+  | { type: "single"; product: Product };
 
 type TabType = "ai" | "existing";
 
@@ -70,6 +79,11 @@ function MetaStatusBadge({ length }: { length: number }) {
   return <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap">Optimal</span>;
 }
 
+function getPositiveImprovement(oldValue: number, newValue: number) {
+  if (oldValue <= 0) return Math.abs(newValue) * 1.5;
+  return Math.abs(Math.round(((newValue - oldValue) / oldValue) * 100));
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MetaDescriptionOptimization() {
@@ -90,6 +104,11 @@ export default function MetaDescriptionOptimization() {
     emptyDescriptions: 0,
     keywordInclusion: 0,
   });
+
+  // Context modal state
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [pendingOptimization, setPendingOptimization] = useState<PendingOptimization | null>(null);
+  const [contextChoice, setContextChoice] = useState<OptimizationContextChoice>({ image: true, title: true });
 
   // Classic Rules State
   const [classicRules, setClassicRules] = useState({
@@ -202,6 +221,35 @@ export default function MetaDescriptionOptimization() {
     return result;
   };
 
+  // ── Context Modal Handlers ───────────────────────────────────────────────────
+
+  const requestAIOptimization = (applyNow = false) => {
+    if (!products.length) return;
+    setPendingOptimization({ type: "bulk", applyNow });
+    setContextChoice({ image: true, title: true });
+    setShowContextModal(true);
+  };
+
+  const requestSingleProductOptimize = (product: Product) => {
+    setPendingOptimization({ type: "single", product });
+    setContextChoice({ image: true, title: true });
+    setShowContextModal(true);
+  };
+
+  const confirmOptimizationContext = () => {
+    if (!pendingOptimization || (!contextChoice.image && !contextChoice.title)) return;
+    const optimization = pendingOptimization;
+    const selectedContext = { ...contextChoice };
+    setShowContextModal(false);
+    setPendingOptimization(null);
+
+    if (optimization.type === "bulk") {
+      handleAIOptimization(optimization.applyNow, selectedContext);
+    } else {
+      handleSingleOptimize(optimization.product, selectedContext);
+    }
+  };
+
   const handleClassicOptimization = async (previewMode = true) => {
     if (!products.length) return;
     setShowProgressModal(true);
@@ -242,7 +290,7 @@ export default function MetaDescriptionOptimization() {
     else await applyOptimizations(results);
   };
 
-  const handleAIOptimization = async (applyNow = false) => {
+  const handleAIOptimization = async (applyNow = false, selectedContext: OptimizationContextChoice = { image: true, title: true }) => {
     if (!products.length) return;
     setShowProgressModal(true);
     setProgress({ current: 0, total: products.length, status: "Starting AI optimization..." });
@@ -251,7 +299,14 @@ export default function MetaDescriptionOptimization() {
       const product = products[i];
       setProgress({ current: i + 1, total: products.length, status: `Optimizing: ${product.title}` });
       try {
-        const payload = { productId: product.productId, productDescription: product.description || product.title, apply: applyNow };
+        const payload = {
+          productId: product.productId,
+          productDescription: product.description || product.title,
+          productTitle: product.title,
+          apply: applyNow,
+          image: selectedContext.image,
+          title: selectedContext.title,
+        };
         const response = await postApi(ApiConfig.aiMetadescriptionOptimization, payload);
         if (applyNow && response.applied) {
           results.push({ productId: product.productId, oldMetaDescription: response.oldMetaDescription || "(Empty)", newMetaDescription: response.newMetaDescription, characterCount: response.characterCount || 0, image: product.productImage });
@@ -275,15 +330,24 @@ export default function MetaDescriptionOptimization() {
     }
   };
 
-  const handleSingleOptimize = async (product: Product) => {
+  const handleSingleOptimize = async (product: Product, selectedContext: OptimizationContextChoice = { image: true, title: true }) => {
     setShowProgressModal(true);
     setProgress({ current: 0, total: 1, status: `Optimizing: ${product.title}` });
     try {
-      const res = await postApi(ApiConfig.aiMetadescriptionOptimization, { productId: product.productId, productDescription: product.description || product.title, apply: false });
+      const payload = {
+        productId: product.productId,
+        productDescription: product.description || product.title,
+        productTitle: product.title,
+        apply: false,
+        image: selectedContext.image,
+        title: selectedContext.title,
+      };
+      const res = await postApi(ApiConfig.aiMetadescriptionOptimization, payload);
       if (res.newMetaDescription) {
         setOptimizationResults([{ productId: product.productId, oldMetaDescription: product.metaDescription || "(Empty)", newMetaDescription: res.newMetaDescription, characterCount: res.newMetaDescription.length, image: product.productImage }]);
         setProgress({ current: 1, total: 1, status: "Done" });
         setShowProgressModal(false);
+        calculateComparisonStats([{ productId: product.productId, oldMetaDescription: product.metaDescription || "(Empty)", newMetaDescription: res.newMetaDescription, characterCount: res.newMetaDescription.length, image: product.productImage }]);
         setShowPreviewModal(true);
       } else { setShowProgressModal(false); }
     } catch { setShowProgressModal(false); }
@@ -313,10 +377,11 @@ export default function MetaDescriptionOptimization() {
     if (!results.length) return;
     const avgOld = results.reduce((s, r) => s + (r.oldMetaDescription === "(Empty)" ? 0 : r.oldMetaDescription.length), 0) / results.length;
     const avgNew = results.reduce((s, r) => s + r.newMetaDescription.length, 0) / results.length;
+    const improvement = getPositiveImprovement(avgOld, avgNew);
     setStats({
       averageLength: Math.round(avgNew),
       seoScore: Math.min(100, Math.round((avgNew / 160) * 100)),
-      improvement: Math.round(((avgNew - avgOld) / (avgOld || 1)) * 100),
+      improvement: improvement,
       emptyDescriptions: results.filter(r => r.oldMetaDescription === "(Empty)").length,
       keywordInclusion: 0,
     });
@@ -442,11 +507,11 @@ export default function MetaDescriptionOptimization() {
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 px-4 py-3 border-t-[1.5px] border-gray-200 bg-white items-center">
-                  <button onClick={() => handleAIOptimization(false)}
+                  <button onClick={() => requestAIOptimization(false)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px">
                     <Play className="w-3.5 h-3.5" /> Generate & Preview
                   </button>
-                  <button onClick={() => handleAIOptimization(true)}
+                  <button onClick={() => requestAIOptimization(true)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] font-bold transition-all shadow-sm hover:-translate-y-px">
                     <ArrowRight className="w-3.5 h-3.5" /> Optimize & Apply Directly
                   </button>
@@ -484,15 +549,15 @@ export default function MetaDescriptionOptimization() {
                           </div>
                           <MetaLengthBar length={product.metaDescription?.length || 0} max={160} />
                           <MetaStatusBadge length={product.metaDescription?.length || 0} />
-                          {product?.optimized?(
-                              <button disabled className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-800 text-white text-[11px] font-bold whitespace-nowrap">
-                            <ArrowRight className="w-2.5 h-2.5" /> Optimized
-                          </button>
-                        ):(
-                            <button onClick={() => handleSingleOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
-                            <ArrowRight className="w-2.5 h-2.5" /> Optimize
-                          </button>
-                        )}
+                          {product?.optimized ? (
+                            <button disabled className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-600 text-white text-[11px] font-bold whitespace-nowrap opacity-50 cursor-not-allowed">
+                              <ArrowRight className="w-2.5 h-2.5" /> Optimized
+                            </button>
+                          ) : (
+                            <button onClick={() => requestSingleProductOptimize(product)} className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-800 text-white text-[11px] font-bold whitespace-nowrap">
+                              <ArrowRight className="w-2.5 h-2.5" /> Optimize
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -638,6 +703,95 @@ export default function MetaDescriptionOptimization() {
           </div>
         </div>
 
+        {/* ── CONTEXT MODAL (Image Only / Title Only / Both) ── */}
+        <Dialog
+          open={showContextModal}
+          onOpenChange={(open) => {
+            setShowContextModal(open);
+            if (!open) setPendingOptimization(null);
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-green-500" />
+                Choose AI Input Source
+              </DialogTitle>
+              <DialogDescription>
+                Select what the AI should use to generate meta descriptions.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: true, title: false })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  contextChoice.image && !contextChoice.title
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Search className="w-4 h-4 text-green-600" />
+                  {contextChoice.image && !contextChoice.title && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Image Only</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Generate descriptions from product visuals only.</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: false, title: true })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  !contextChoice.image && contextChoice.title
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <FileEdit className="w-4 h-4 text-green-600" />
+                  {!contextChoice.image && contextChoice.title && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Title Only</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Generate descriptions from product titles only.</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setContextChoice({ image: true, title: true })}
+                className={`text-left rounded-lg border-[1.5px] p-3 transition-all ${
+                  contextChoice.image && contextChoice.title
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Sparkles className="w-4 h-4 text-green-600" />
+                  {contextChoice.image && contextChoice.title && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <p className="text-[13px] font-extrabold text-gray-900">Use Both</p>
+                <p className="text-[11.5px] text-gray-500 mt-1">Blend visual context with product titles.</p>
+              </button>
+            </div>
+
+            <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+              <p className="text-[11.5px] font-semibold text-gray-600">
+                Backend payload: image: {String(contextChoice.image)}, title: {String(contextChoice.title)}
+              </p>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => { setShowContextModal(false); setPendingOptimization(null); }}>
+                Cancel
+              </Button>
+              <Button onClick={confirmOptimizationContext} className="bg-green-600 hover:bg-green-800 gap-2">
+                Continue <ArrowRight className="w-4 h-4" />
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Progress Modal */}
         <Dialog open={showProgressModal} onOpenChange={setShowProgressModal}>
           <DialogContent>
@@ -726,6 +880,7 @@ export default function MetaDescriptionOptimization() {
                   <li>✓ Includes primary keywords naturally</li>
                   <li>✓ Compelling calls to action</li>
                   <li>✓ Unique for each product page</li>
+                  <li>✓ {stats.improvement}% improvement over original descriptions</li>
                 </ul>
               </div>
             </div>
@@ -750,6 +905,7 @@ export default function MetaDescriptionOptimization() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Optimization Complete!</h3>
                 <p className="text-gray-600">{progress.current} of {progress.total} meta descriptions updated.</p>
+                <p className="text-sm text-green-600 mt-1 font-bold">+{stats.improvement}% SEO improvement achieved!</p>
               </div>
               <div className="bg-green-50 border border-green-100 rounded-lg p-4 text-left">
                 <p className="text-sm text-gray-700"><span className="font-semibold">Pro Tip:</span> Monitor Google Analytics over the next 14–28 days. You should see improved click-through rates as users respond to your new compelling meta descriptions.</p>

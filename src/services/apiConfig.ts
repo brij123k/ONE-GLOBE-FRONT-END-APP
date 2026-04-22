@@ -33,6 +33,11 @@ const ApiConfig = {
   updateShopifyTitle:`${BASE_URL}/api/optimization/apply/title`,
   updateShopifyDescription:`${BASE_URL}/api/optimization/apply/description`,
 
+  // product detail optimization
+  detailProducts:`${BASE_URL}/api/detail/products`,
+  detailOptimize:`${BASE_URL}/api/detail/optimize`,
+  detailSave:`${BASE_URL}/api/detail/save`,
+
   // meta
   aiMetaTitleOptimization:`${BASE_URL}/api/meta/title/optimize`,
   updateMetaTitleOptimization:`${BASE_URL}/api/meta/title/save`,

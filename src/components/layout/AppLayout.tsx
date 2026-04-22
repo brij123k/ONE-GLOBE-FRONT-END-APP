@@ -103,6 +103,12 @@ const navSections = [
     ]
   },
   {
+    title:"Product Detail work",
+    items:[
+      {icon:Barcode, label: "Detail Optimization", path: "/products?service=detail"}
+    ]
+  },
+  {
     title: "Product Data",
     items: [
       { icon: Barcode, label: "SKU Optimization", path: "/products?service=sku" },
