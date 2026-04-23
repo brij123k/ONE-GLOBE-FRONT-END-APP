@@ -834,7 +834,7 @@ export default function TitleOptimization() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {[
                         selectedFormat.primaryElement,
-                        selectedFormat.secondaryElement,
+                        selectedFormat.secondaryElement !== "none" ? selectedFormat.secondaryElement : null,,
                         selectedFormat.thirdElement !== "none" ? selectedFormat.thirdElement : null,
                         selectedFormat.fourthElement !== "none" ? selectedFormat.fourthElement : null,
                       ].filter(Boolean).map((el, i, arr) => (
@@ -914,6 +914,7 @@ export default function TitleOptimization() {
                           selectedFormat.secondaryElement === "Product Name" ? "border-blue-400 bg-blue-50 font-bold text-blue-800" : "border-gray-200 focus:border-blue-500"
                         }`}
                       >
+                        <option value="none">— None —</option>
                         {allSlotElements.map((el) => <option key={el}>{el}</option>)}
                       </select>
                     </div>
@@ -1110,7 +1111,7 @@ export default function TitleOptimization() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {[
                         customFormula.primaryElement,
-                        customFormula.secondaryElement,
+                        customFormula.secondaryElement !== "none" ? customFormula.secondaryElement : null,,
                         customFormula.thirdElement !== "none" ? customFormula.thirdElement : null,
                         customFormula.fourthElement !== "none" ? customFormula.fourthElement : null,
                       ].filter(Boolean).map((el, i, arr) => (
