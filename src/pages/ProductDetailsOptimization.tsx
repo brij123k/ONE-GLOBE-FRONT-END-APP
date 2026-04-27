@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Badge } from "@/components/ui/badge";
@@ -154,6 +154,8 @@ const buildSavePayload = (result: DetailOptimizationResult) => ({
   images: result.images || [],
 });
 
+const normalizeExampleTitle = (title: string) => title.trim();
+
 export default function ProductDetailsOptimization() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<DetailProduct[]>([]);
@@ -167,6 +169,9 @@ export default function ProductDetailsOptimization() {
   const [showSaveSummaryModal, setShowSaveSummaryModal] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
   const [mode, setMode] = useState<Mode>("preview");
+  const [shareTitleExamples, setShareTitleExamples] = useState(false);
+  const [titleExampleInput, setTitleExampleInput] = useState("");
+  const [titleExamples, setTitleExamples] = useState<string[]>([]);
 
   const selectedFormula = useMemo(
     () => formulas.find((formula) => formula.id === selectedFormulaId) || formulas[0],
@@ -175,6 +180,28 @@ export default function ProductDetailsOptimization() {
 
   const optimizedCount = products.filter((product) => product.optimized).length;
   const changedProducts = results.filter((result) => hasAnyChange(result)).length;
+
+  const addTitleExample = (title: string) => {
+    const cleanedTitle = normalizeExampleTitle(title);
+    if (!cleanedTitle) return;
+    setTitleExamples((prev) => (prev.includes(cleanedTitle) ? prev : [...prev, cleanedTitle]));
+  };
+
+  const removeTitleExample = (title: string) => {
+    setTitleExamples((prev) => prev.filter((item) => item !== title));
+  };
+
+  const handleTitleExampleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addTitleExample(titleExampleInput);
+    setTitleExampleInput("");
+  };
+
+  const buildExamplePayload = () =>
+    shareTitleExamples && titleExamples.length > 0
+      ? { exampleButton: true, examples: titleExamples }
+      : { exampleButton: false as const };
 
   useEffect(() => {
     fetchProducts();
@@ -227,6 +254,7 @@ export default function ProductDetailsOptimization() {
           title: scope.title,
           description: scope.description,
           apply,
+          ...buildExamplePayload(),
         });
 
         nextResults.push(normalizeOptimizationResult(response, product));
@@ -365,6 +393,54 @@ export default function ProductDetailsOptimization() {
               <ToggleRow label="Analyze image" checked={scope.image} onChange={(value) => setScope((prev) => ({ ...prev, image: value }))} />
               <ToggleRow label="Optimize title/meta/handle" checked={scope.title} onChange={(value) => setScope((prev) => ({ ...prev, title: value }))} />
               <ToggleRow label="Optimize description" checked={scope.description} onChange={(value) => setScope((prev) => ({ ...prev, description: value }))} />
+
+  
+                <div className="pt-2 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShareTitleExamples((prev) => !prev)}
+                    className={`w-full flex items-center justify-between rounded-lg px-3 py-2 border-[1.5px] transition-colors ${
+                      shareTitleExamples ? "border-blue-600 bg-blue-50" : "border-gray-200 bg-gray-50 hover:border-blue-300"
+                    }`}
+                  >
+                    <span className="text-[13px] font-semibold text-gray-900">Share title examples</span>
+                    <span className={`w-10 h-6 rounded-full relative transition-colors flex-shrink-0 ${shareTitleExamples ? "bg-blue-600" : "bg-gray-300"}`}>
+                      <span
+                        className={`absolute w-4 h-4 bg-white rounded-full top-[4px] shadow-sm transition-transform ${
+                          shareTitleExamples ? "translate-x-5" : "translate-x-[3px]"
+                        }`}
+                      />
+                    </span>
+                  </button>
+
+                  {shareTitleExamples && (
+                    <div className="space-y-2">
+                      <input
+                        value={titleExampleInput}
+                        onChange={(event) => setTitleExampleInput(event.target.value)}
+                        onKeyDown={handleTitleExampleKeyDown}
+                        placeholder="Type a title and press Enter"
+                        className="w-full px-3 py-2 border-[1.5px] border-gray-200 rounded-lg text-[13px] outline-none focus:border-blue-500"
+                      />
+                      <p className="text-[11px] text-gray-500">Add as many title examples as you want before running optimization.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {titleExamples.map((title) => (
+                          <button
+                            key={title}
+                            type="button"
+                            onClick={() => removeTitleExample(title)}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[12px] font-medium text-blue-700 hover:bg-blue-100"
+                            title="Remove example"
+                          >
+                            {title}
+                            <span className="text-blue-500 font-bold">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+           
             </div>
 
             <div className="p-4 border-t-[1.5px] border-gray-200 bg-gray-50 space-y-2">
@@ -579,6 +655,7 @@ export default function ProductDetailsOptimization() {
         title: scope.title,
         description: scope.description,
         apply: false,
+        ...buildExamplePayload(),
       });
       setResults([normalizeOptimizationResult(response, product)]);
     } catch (error) {

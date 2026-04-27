@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -298,6 +298,9 @@ export default function TitleOptimization() {
   const [showContextModal, setShowContextModal] = useState(false);
   const [pendingOptimization, setPendingOptimization] = useState<PendingOptimization | null>(null);
   const [contextChoice, setContextChoice] = useState<OptimizationContextChoice>({ image: true, title: true });
+  const [shareExampleTitles, setShareExampleTitles] = useState(false);
+  const [exampleTitleInput, setExampleTitleInput] = useState("");
+  const [exampleTitles, setExampleTitles] = useState<string[]>([]);
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResult[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0, status: "" });
   const [stats, setStats] = useState({ averageLength: 0, seoScore: 0, keywordDensity: 0, improvement: 0 });
@@ -333,6 +336,28 @@ export default function TitleOptimization() {
     ].filter(Boolean);
     return parts.join(" + ");
   };
+
+  const addExampleTitle = (title: string) => {
+    const cleanedTitle = title.trim();
+    if (!cleanedTitle) return;
+    setExampleTitles((prev) => (prev.includes(cleanedTitle) ? prev : [...prev, cleanedTitle]));
+  };
+
+  const removeExampleTitle = (title: string) => {
+    setExampleTitles((prev) => prev.filter((item) => item !== title));
+  };
+
+  const handleExampleTitleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addExampleTitle(exampleTitleInput);
+    setExampleTitleInput("");
+  };
+
+  const buildExampleTitlePayload = () =>
+    shareExampleTitles && exampleTitles.length > 0
+      ? { exampleButton: true, examples: exampleTitles }
+      : { exampleButton: false as const };
 
   // Save current formula (from either AI tab or Custom tab) as a new user template card
   const saveAsNewTemplate = (source: AIFormat) => {
@@ -439,6 +464,7 @@ export default function TitleOptimization() {
           image: selectedContext.image,
           title: selectedContext.title,
           apply: applyNow,
+          ...buildExampleTitlePayload(),
         };
         const response = await postApi(ApiConfig.aiTitleOptimization, payload);
         if (applyNow) {
@@ -528,9 +554,9 @@ export default function TitleOptimization() {
     setShowProgressModal(true);
     setProgress({ current: 0, total: 1, status: `Optimizing: ${product.title}` });
     try {
-      const payload = {
-        productId: product.productId,
-        categoryName: format.categoryName,
+        const payload = {
+          productId: product.productId,
+          categoryName: format.categoryName,
         minCharacters: format.minCharacters,
         maxCharacters: format.maxCharacters,
         primaryElement: format.primaryElement,
@@ -540,12 +566,13 @@ export default function TitleOptimization() {
         formulaPattern: buildFormulaPattern(format),
         brandFocused: format.brandFocused,
         tone: format.tone,
-        mustIncludeKeywords: format.mustIncludeKeywords.join(","),
-        excludeKeywords: format.excludeKeywords.join(","),
-        image: selectedContext.image,
-        title: selectedContext.title,
-        apply: false,
-      };
+          mustIncludeKeywords: format.mustIncludeKeywords.join(","),
+          excludeKeywords: format.excludeKeywords.join(","),
+          image: selectedContext.image,
+          title: selectedContext.title,
+          apply: false,
+          ...buildExampleTitlePayload(),
+        };
       const response = await postApi(ApiConfig.aiTitleOptimization, payload);
       if (response.newTitle) {
         setOptimizationResults([{
@@ -1462,7 +1489,7 @@ export default function TitleOptimization() {
                 <Search className="w-4 h-4 text-blue-600" />
                 {!contextChoice.image && contextChoice.title && <CheckCircle className="w-4 h-4 text-blue-600" />}
               </div>
-              <p className="text-[13px] font-extrabold text-gray-900">Use Old Title</p>
+              <p className="text-[13px] font-extrabold text-gray-900">Use Title Only</p>
               <p className="text-[11.5px] text-gray-500 mt-1">Improve the existing product title.</p>
             </button>
 
@@ -1488,6 +1515,56 @@ export default function TitleOptimization() {
             <p className="text-[11.5px] font-semibold text-gray-600">
               Backend payload: image: {String(contextChoice.image)}, title: {String(contextChoice.title)}
             </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-3 space-y-3">
+            <button
+              type="button"
+              onClick={() => setShareExampleTitles((prev) => !prev)}
+              className={`w-full flex items-center justify-between rounded-lg px-3 py-2 border-[1.5px] transition-colors ${
+                shareExampleTitles ? "border-blue-600 bg-blue-50" : "border-gray-200 bg-gray-50 hover:border-blue-300"
+              }`}
+            >
+              <span className="text-[13px] font-semibold text-gray-900">Share example titles</span>
+              <span
+                className={`w-10 h-6 rounded-full relative transition-colors flex-shrink-0 ${
+                  shareExampleTitles ? "bg-blue-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute w-4 h-4 bg-white rounded-full top-[4px] shadow-sm transition-transform ${
+                    shareExampleTitles ? "translate-x-5" : "translate-x-[3px]"
+                  }`}
+                />
+              </span>
+            </button>
+
+            {shareExampleTitles && (
+              <div className="space-y-2">
+                <input
+                  value={exampleTitleInput}
+                  onChange={(event) => setExampleTitleInput(event.target.value)}
+                  onKeyDown={handleExampleTitleKeyDown}
+                  placeholder="Type a title and press Enter"
+                  className="w-full px-3 py-2 border-[1.5px] border-gray-200 rounded-lg text-[13px] outline-none focus:border-blue-500"
+                />
+                <p className="text-[11px] text-gray-500">Add multiple examples one by one, then run optimization.</p>
+                <div className="flex flex-wrap gap-2">
+                  {exampleTitles.map((title) => (
+                    <button
+                      key={title}
+                      type="button"
+                      onClick={() => removeExampleTitle(title)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[12px] font-medium text-blue-700 hover:bg-blue-100"
+                      title="Remove example"
+                    >
+                      {title}
+                      <span className="text-blue-500 font-bold">×</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
