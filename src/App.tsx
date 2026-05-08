@@ -26,6 +26,8 @@ import TagOptimization from "./pages/tagOptimization";
 import SpecificationOptimization from "./pages/SpecificationOptimization";
 import MetafieldsManager from "./pages/Metafieldsmanager";
 import ProductDetailsOptimization from "./pages/ProductDetailsOptimization";
+import Dashboard from "./pages/Dashboard";
+import Overview from "./pages/Overview";
 
 const queryClient = new QueryClient();
 
@@ -65,7 +67,8 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Overview />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<ProductSelection />} />
             <Route path="/title-optimization" element={<TitleOptimization />} />
             <Route path="/description-optimization" element={<DescriptionOptimization />} />
