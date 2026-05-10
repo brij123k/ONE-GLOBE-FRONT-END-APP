@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getApi } from "@/services/apiService";
 import ApiConfig from "@/services/apiConfig";
+import { DashboardClusterSection } from "@/components/Dashboardcluster";
 
 interface StoreData {
   id: string;
@@ -1010,91 +1011,11 @@ export default function Overview() {
         </div>
 
         {/* ── SEO Audit Section with Electric Gauge ── */}
-        <Card3D className="overflow-hidden">
-          <SectionHeader number={1} title="SEO Performance Audit" icon={Gauge} />
-          
-          <div className="p-5">
-            <div className="flex flex-col lg:flex-row items-center gap-6 mb-8">
-              <div className="relative">
-                <ElectricGauge score={seoAudit.overallSeoScore} size={300} />
-              </div>
-              <div className="flex-1 text-center lg:text-left">
-                <div className="flex items-center gap-3 justify-center lg:justify-start mb-3">
-                  <Badge className={`${scoreInfo.color} border gap-1 px-3 py-1.5 text-[11px] font-bold shadow-md`}>
-                    {scoreInfo.icon} {scoreInfo.label}
-                  </Badge>
-                  <span className="text-[11px] text-gray-400">out of 100</span>
-                </div>
-                <p className="text-[13px] text-gray-300 max-w-md mx-auto lg:mx-0">
-                  {seoAudit.overallSeoScore >= 70 
-                    ? "Your store has solid SEO foundations. Keep optimizing to stay ahead of competitors."
-                    : seoAudit.overallSeoScore >= 50
-                    ? "Your store needs moderate SEO improvements to rank better in search results."
-                    : "Critical issues detected. Immediate action required to improve search visibility."}
-                </p>
-                <CircleButton3D
-                  onClick={() => setShowSeoModal(true)} variant="primary" 
-                  icon={<FileText/> } 
-                  text="View Full SEO Report" 
-                  className="mt-4"
-                  />
-                  
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-              {[
-                { label: "Technical SEO", score: getSeoScore("TechnicalSEO"), key: "tech" },
-                { label: "On-Page SEO", score: getSeoScore("On-PageSEO"), key: "onpage" },
-                { label: "Product Pages", score: getSeoScore("ProductPageSEO"), key: "products" },
-                { label: "Collections", score: getSeoScore("CollectionSEO"), key: "collections" },
-                { label: "Homepage", score: getSeoScore("HomepageSEO"), key: "homepage" },
-                { label: "Conversion", score: getSeoScore("ConversionSEO"), key: "conversion" },
-              ].map(item => (
-                <MiniElectricGauge 
-                  key={item.key}
-                  score={item.score || 0} 
-                  label={item.label}
-                />
-              ))}
-            </div>
-
-            <div className="bg-gradient-to-r from-cyan-950/30 to-transparent border border-cyan-500/20 rounded-xl p-4
-            shadow-[inset_-3px_-3px_2px_rgba(255,255,255,0.3),inset_5px_5px_5px_rgba(0,0,0,0.2),_15px_15px_15px_rgba(0,0,0,0.1)]
-            hover:shadow-[-1px_-1px_1px_rgba(255,255,255,0.2),_2px_2px_3px_rgba(0,0,0,0.15),_8px_8px_10px_rgba(0,0,0,0.08)]"
-           
-  //  onMouseDown={(e) => {
-  //   e.currentTarget.style.transform = 'translateY(2px)';
-  //   e.currentTarget.style.boxShadow = '-1px -1px 1px rgba(255,255,255,0.2), 2px 2px 3px rgba(0,0,0,0.15), 8px 8px 10px rgba(0,0,0,0.08)';
-  // }}
-  // onMouseUp={(e) => {
-  //   e.currentTarget.style.transform = 'translateY(0px)';
-  //   e.currentTarget.style.boxShadow = '-3px -3px 2px rgba(255,255,255,0.3), 5px 5px 5px rgba(0,0,0,0.2), 15px 15px 15px rgba(0,0,0,0.1)';
-  // }}
-  // onMouseLeave={(e) => {
-  //   e.currentTarget.style.transform = 'translateY(0px)';
-  //   e.currentTarget.style.boxShadow = '-3px -3px 2px rgba(255,255,255,0.3), 5px 5px 5px rgba(0,0,0,0.2), 15px 15px 15px rgba(0,0,0,0.1)';
-  // }}
-
-  >
-    
-              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                <ZapIcon className="w-3.5 h-3.5" /> Quick Wins (Easy Fixes)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {seoAudit.quickWins.map(win => (
-                  <span key={win} className="text-[11px] px-2.5 py-1 bg-[#0a0f18] border border-cyan-500/20 rounded-full text-cyan-400
-                   shadow-[-2px_-2px_2px_rgba(255,255,255,0.3),2px_2px_5px_rgba(0,0,0,0.3)]
-                   hover:shadow-[-1px_-1px_1px_rgba(255,255,255,0.2),2px_2px_3px_rgba(0,0,0,0.15),8px_8px_10px_rgba(0,0,0,0.08)]
-                   transition-all duration-200 cursor-pointer"
-                  >
-                    {win}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card3D>
+                <DashboardClusterSection
+  seoAudit={seoAudit}
+  scoreInfo={scoreInfo}
+  onViewReport={() => setShowSeoModal(true)}
+/>
 
         {/* ── Store Info Section ── */}
         <Card3D className="overflow-hidden">

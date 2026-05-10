@@ -206,17 +206,17 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-[#e2e0db] bg-white">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-cyan-500/15 bg-[#06101b]/95 backdrop-blur-xl">
         {!collapsed ? (
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[#95BF46] flex items-center justify-center flex-shrink-0">
-              <Zap className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-[0_0_0_1px_rgba(0,212,255,0.18)]">
+              <Zap className="w-4 h-4 text-black" />
             </div>
-            <span className="font-semibold text-[#1a1917] truncate text-sm">AI Optimizer</span>
+            <span className="font-semibold text-slate-100 truncate text-sm">AI Optimizer</span>
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-lg bg-[#95BF46] flex items-center justify-center mx-auto flex-shrink-0">
-            <Zap className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center mx-auto flex-shrink-0 shadow-[0_0_0_1px_rgba(0,212,255,0.18)]">
+            <Zap className="w-4 h-4 text-black" />
           </div>
         )}
 
@@ -225,7 +225,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-[#9e9b95] hover:text-[#1a1917] flex-shrink-0"
+            className="h-8 w-8 text-slate-400 hover:text-cyan-300 flex-shrink-0"
             onClick={() => setCollapsed(true)}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -248,7 +248,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
       )} */}
 
       {/* Main Navigation */}
-      <ScrollArea className="flex-1 bg-white">
+      <ScrollArea className="flex-1 bg-transparent">
         <nav className="p-3 space-y-4">
           {navSections.map((section) => (
             <Collapsible
@@ -257,7 +257,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
               onOpenChange={() => toggleSection(section.title)}
             >
               {!collapsed && (
-                <CollapsibleTrigger className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] font-semibold text-[#9e9b95] uppercase tracking-wider hover:text-[#95BF46]">
+                <CollapsibleTrigger className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-cyan-300">
                   <span>{section.title}</span>
                   <ChevronDown className={cn(
                     "w-3 h-3 transition-transform",
@@ -280,10 +280,10 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
                       key={item.path}
                       to={item.comingSoon ? "#" : item.path}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative",
+                        "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group relative border border-transparent",
                         isActive
-                          ? "bg-[#ede9ff] text-[#95BF46]"
-                          : "text-[#6b6862] hover:bg-[#f5f4f1] hover:text-[#1a1917]",
+                          ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/20 shadow-[0_0_0_1px_rgba(0,212,255,0.08)]"
+                          : "text-slate-400 hover:bg-white/5 hover:text-slate-100 hover:border-cyan-500/10",
                         item.comingSoon && "opacity-50 cursor-not-allowed"
                       )}
                       onClick={(e) => {
@@ -297,25 +297,25 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
                     >
                       <item.icon className={cn(
                         "w-4 h-4 flex-shrink-0",
-                        isActive ? "text-[#95BF46]" : "text-[#9e9b95]"
+                        isActive ? "text-cyan-300" : "text-slate-500"
                       )} />
                       {!collapsed && (
                         <>
                           <span className="font-medium text-[12.5px] truncate">{item.label}</span>
                           {item.popular && (
-                            <span className="ml-auto text-[9px] font-medium bg-[#ede9ff] text-[#95BF46] px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            <span className="ml-auto text-[9px] font-medium bg-cyan-500/10 text-cyan-300 px-1.5 py-0.5 rounded-full flex-shrink-0 border border-cyan-500/20">
                               Popular
                             </span>
                           )}
                           {item.comingSoon && (
-                            <span className="ml-auto text-[9px] font-medium bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            <span className="ml-auto text-[9px] font-medium bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded-full flex-shrink-0 border border-amber-500/20">
                               Soon
                             </span>
                           )}
                         </>
                       )}
                       {collapsed && item.popular && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#6046ff] rounded-full" />
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-cyan-400 rounded-full" />
                       )}
                       {collapsed && item.comingSoon && (
                         <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
@@ -330,7 +330,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
       </ScrollArea>
 
       {/* Bottom Navigation */}
-      <div className="p-3 border-t border-[#e2e0db] space-y-1 bg-white">
+      <div className="p-3 border-t border-cyan-500/15 space-y-1 bg-[#06101b]/95 backdrop-blur-xl">
         {bottomNavItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -340,14 +340,14 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
                 isActive
-                  ? "bg-[#ede9ff] text-[#95BF46]"
-                  : "text-[#6b6862] hover:bg-[#f5f4f1] hover:text-[#1a1917]"
+                  ? "bg-cyan-500/10 text-cyan-300"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
               )}
               onClick={() => isMobile && setCollapsed(true)}
             >
               <item.icon className={cn(
                 "w-4 h-4 flex-shrink-0",
-                isActive ? "text-[#95BF46]" : "text-[#9e9b95]"
+                isActive ? "text-cyan-300" : "text-slate-500"
               )} />
               {!collapsed && (
                 <span className="font-medium text-[12.5px] truncate">{item.label}</span>
@@ -358,16 +358,16 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
 
         {/* User Profile - Only when expanded */}
         {!collapsed && (
-          <div className="mt-4 pt-4 border-t border-[#e2e0db]">
+          <div className="mt-4 pt-4 border-t border-cyan-500/15">
             <div className="flex items-center gap-3 px-3 py-2">
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-[#95BF46] text-white text-xs">
+                <AvatarFallback className="bg-cyan-500 text-black text-xs">
                   {getInitials(shop.owner)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-[12.5px] font-medium text-[#1a1917] truncate">{shop.owner}</p>
-                <p className="text-[11px] text-[#9e9b95] truncate">plan: {shop.plan}</p>
+                <p className="text-[12.5px] font-medium text-slate-100 truncate">{shop.owner}</p>
+                <p className="text-[11px] text-slate-500 truncate">plan: {shop.plan}</p>
               </div>
             </div>
           </div>
@@ -378,7 +378,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
           <Button
             variant="ghost"
             size="icon"
-            className="w-full h-10 text-[#9e9b95] hover:text-[#1a1917] mt-2"
+            className="w-full h-10 text-slate-400 hover:text-cyan-300 mt-2"
             onClick={() => setCollapsed(false)}
           >
             <ChevronRight className="w-4 h-4" />
@@ -403,7 +403,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
         {/* Mobile sidebar */}
         <aside
           className={cn(
-            "fixed top-0 left-0 h-full bg-white border-r border-[#e2e0db] flex flex-col z-50 transition-all duration-300 ease-out",
+            "fixed top-0 left-0 h-full bg-[#050a12]/95 border-r border-cyan-500/15 flex flex-col z-50 transition-all duration-300 ease-out backdrop-blur-xl",
             collapsed ? "-translate-x-full" : "translate-x-0",
             "w-72"
           )}
@@ -418,7 +418,7 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
   return (
     <aside
       className={cn(
-        "h-screen bg-white border-r border-[#e2e0db] flex flex-col transition-all duration-300 ease-out sticky top-0",
+        "h-screen bg-[#050a12]/95 border-r border-cyan-500/15 flex flex-col transition-all duration-300 ease-out sticky top-0 backdrop-blur-xl",
         collapsed ? "w-16" : "w-72"
       )}
     >
@@ -465,7 +465,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
   return (
     <header
       className={cn(
-        "sticky top-0 h-16 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-[#e2e0db] flex items-center px-4 sm:px-6 z-30 transition-all duration-200",
+        "sticky top-0 h-16 bg-[#06101b]/90 backdrop-blur-xl supports-[backdrop-filter]:bg-[#06101b]/75 border-b border-cyan-500/15 flex items-center px-4 sm:px-6 z-30 transition-all duration-200",
         scrolled && "shadow-sm"
       )}
     >
@@ -476,7 +476,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
           <Button
             variant="ghost"
             size="icon"
-            className="text-[#9e9b95] hover:text-[#1a1917]"
+            className="text-slate-400 hover:text-cyan-300"
             onClick={() => {
               setSidebarCollapsed(!sidebarCollapsed);
             }}
@@ -490,7 +490,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
           <Button
             variant="ghost"
             size="icon"
-            className="text-[#9e9b95] hover:text-[#1a1917]"
+            className="text-slate-400 hover:text-cyan-300"
             onClick={() => setSidebarCollapsed(false)}
           >
             <Menu className="w-5 h-5" />
@@ -499,7 +499,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
 
         {/* Title */}
         {title && (
-          <h1 className="text-lg sm:text-xl font-semibold text-[#1a1917] truncate max-w-[200px] sm:max-w-none">
+          <h1 className="text-lg sm:text-xl font-semibold text-slate-100 truncate max-w-[200px] sm:max-w-none">
             {title}
           </h1>
         )}
@@ -516,10 +516,10 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
             <Button
               variant="ghost"
               size="icon"
-              className="relative text-[#9e9b95] hover:text-[#1a1917]"
+              className="relative text-slate-400 hover:text-cyan-300"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#95BF46] rounded-full animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
@@ -540,10 +540,10 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="gap-2 text-[#9e9b95] hover:text-[#1a1917] px-2"
+              className="gap-2 text-slate-400 hover:text-cyan-300 px-2"
             >
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-[#95BF46] text-white text-sm">
+                <AvatarFallback className="bg-cyan-500 text-black text-sm">
                   {getInitials(shop.owner)}
                 </AvatarFallback>
               </Avatar>
@@ -551,7 +551,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
                 <>
                   <div className="hidden sm:block text-left">
                     <p className="text-sm font-medium truncate">{shop?.owner || "User"}</p>
-                    <p className="text-xs text-[#9e9b95] truncate">Plan: {shop?.plan || "Free"}</p>
+                    <p className="text-xs text-slate-500 truncate">Plan: {shop?.plan || "Free"}</p>
                   </div>
                   <ChevronDown className="hidden sm:block w-4 h-4 ml-1" />
                 </>
@@ -613,7 +613,7 @@ export function AppLayout({ children, title, shop: initialShop }: AppLayoutProps
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f5f4f1] font-['DM_Sans']">
+    <div className="min-h-screen bg-transparent font-['DM_Sans'] text-slate-100">
       <div className="flex">
         {/* Sidebar */}
         <AppSidebar
@@ -625,7 +625,7 @@ export function AppLayout({ children, title, shop: initialShop }: AppLayoutProps
 
         {/* Main Content */}
         <div className={cn(
-          "flex-1 flex flex-col min-h-screen transition-all duration-300",
+          "flex-1 flex flex-col min-h-screen transition-all duration-300 bg-transparent",
         )}>
           <AppHeader
             title={title}
@@ -643,14 +643,14 @@ export function AppLayout({ children, title, shop: initialShop }: AppLayoutProps
           </main>
 
           {/* Footer */}
-          <footer className="border-t border-[#e2e0db] bg-white py-4 px-4 sm:px-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#9e9b95]">
+          <footer className="border-t border-cyan-500/15 bg-[#06101b]/95 backdrop-blur-xl py-4 px-4 sm:px-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
               <div className="text-center sm:text-left">
                 © {new Date().getFullYear()} AI Optimizer. All rights reserved.
               </div>
               <div className="flex items-center gap-6">
-                <Link to="/privacy" className="hover:text-[#95BF46] transition-colors">Privacy</Link>
-                <Link to="/terms" className="hover:text-[#95BF46] transition-colors">Terms</Link>
+                <Link to="/privacy" className="hover:text-cyan-300 transition-colors">Privacy</Link>
+                <Link to="/terms" className="hover:text-cyan-300 transition-colors">Terms</Link>
               </div>
             </div>
           </footer>

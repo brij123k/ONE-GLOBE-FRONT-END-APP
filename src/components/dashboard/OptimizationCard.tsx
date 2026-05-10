@@ -22,31 +22,28 @@ export function OptimizationCard({
   const CardContent = () => (
     <div
       className={cn(
-        "group relative p-6 rounded-2xl border transition-smooth cursor-pointer overflow-hidden",
+        "neon-card group relative p-6 cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1",
         gradient
-          ? "bg-[#95BF46] border-transparent text-white hover:shadow-card-hover"
-          : "bg-card border-border hover:border-primary/30 hover:shadow-card-hover",
+          ? "border-cyan-400/20 text-slate-950"
+          : "border-cyan-500/15 text-slate-100",
         comingSoon && "opacity-60 cursor-not-allowed"
       )}
     >
-      {/* Background decoration */}
-      {gradient && (
-        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      )}
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
       {/* Icon */}
       <div
         className={cn(
-          "w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-smooth group-hover:scale-110",
+          "relative z-10 w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-110 border",
           gradient
-            ? "bg-white"
-            : "bg-gradient-ai-soft"
+            ? "bg-slate-950/90 border-slate-900/30 shadow-[0_12px_26px_-16px_rgba(0,0,0,0.65)]"
+            : "bg-gradient-to-br from-cyan-500/18 to-purple-500/12 border-cyan-500/20 shadow-[0_12px_26px_-16px_rgba(0,212,255,0.25)]"
         )}
       >
         <Icon
           className={cn(
             "w-6 h-6",
-              gradient ? "text-[#95BF46]" : "text-[#95BF46]"
+              gradient ? "text-cyan-300" : "text-cyan-300"
           )}
         />
       </div>
@@ -54,16 +51,16 @@ export function OptimizationCard({
       {/* Content */}
       <h3
         className={cn(
-          "font-semibold text-lg mb-2",
-          gradient ? "text-primary-foreground" : "text-foreground"
+          "relative z-10 font-semibold text-lg mb-2",
+          gradient ? "text-slate-950" : "text-slate-100"
         )}
       >
         {title}
       </h3>
       <p
         className={cn(
-          "text-sm leading-relaxed",
-          gradient ? "text-primary-foreground/80" : "text-muted-foreground"
+          "relative z-10 text-sm leading-relaxed",
+          gradient ? "text-slate-900/80" : "text-slate-400"
         )}
       >
         {description}
@@ -71,7 +68,7 @@ export function OptimizationCard({
 
       {/* Coming Soon Badge */}
       {comingSoon && (
-        <div className="absolute top-4 right-4 text-xs font-medium bg-white text-[#95BF46] px-2 py-1 rounded-full">
+        <div className="absolute top-4 right-4 text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 px-2 py-1 rounded-full">
           Coming Soon
         </div>
       )}
@@ -80,12 +77,12 @@ export function OptimizationCard({
       {!comingSoon && (
         <div
           className={cn(
-            "absolute bottom-6 right-6 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-smooth",
-            gradient ? "bg-white/20" : "bg-primary/10"
+            "absolute bottom-6 right-6 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300 z-10",
+            gradient ? "bg-black/10" : "bg-cyan-500/10"
           )}
         >
           <svg
-            className={cn("w-4 h-4", gradient ? "text-primary-foreground" : "text-primary")}
+            className={cn("w-4 h-4", gradient ? "text-slate-900" : "text-cyan-300")}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
