@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { FileText, Zap as ZapIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -311,16 +311,34 @@ function ClusterPanel({
   overallScore: number; technicalSEO: number; onPageSEO: number;
   homepageSEO: number; productPageSEO: number; collectionSEO: number; conversionSEO: number;
 }) {
-  // 7 gauges — sizes: outer=100, mid=126, inner=152, center=280
+  const [activeIndex, setActiveIndex] = useState(3);
+
   const gauges = [
-    { score: technicalSEO,  label: "Technical SEO", bar: "Tech",  size: 100 },
-    { score: onPageSEO,     label: "On-Page SEO",   bar: "On-Pg", size: 126 },
-    { score: homepageSEO,   label: "Homepage SEO",  bar: "Home",  size: 152 },
-    { score: overallScore,  label: "Overall SEO",   bar: "SEO",   size: 280, isCenter: true },
-    { score: productPageSEO,label: "Product Pages", bar: "Prod",  size: 152 },
-    { score: collectionSEO, label: "Collections",   bar: "Coll",  size: 126 },
-    { score: conversionSEO, label: "Conversion",    bar: "Conv",  size: 100 },
+    { score: technicalSEO,  label: "Technical SEO", bar: "Tech",  key: "technical" },
+    { score: onPageSEO,     label: "On-Page SEO",   bar: "On-Pg", key: "onpage" },
+    { score: homepageSEO,   label: "Homepage SEO",  bar: "Home",  key: "homepage" },
+    { score: overallScore,  label: "Overall SEO",   bar: "SEO",   key: "overall" },
+    { score: productPageSEO,label: "Product Pages", bar: "Prod",  key: "product" },
+    { score: collectionSEO, label: "Collections",   bar: "Coll",  key: "collection" },
+    { score: conversionSEO, label: "Conversion",    bar: "Conv",  key: "conversion" },
   ];
+
+  const total = gauges.length;
+  const centerSlot = Math.floor(total / 2);
+
+  function getGaugeSize(distance: number) {
+    if (distance === 0) return 220;
+    if (distance === 1) return 134;
+    if (distance === 2) return 110;
+    return 92;
+  }
+
+  function getCircularSlot(index: number) {
+    const raw = index - activeIndex;
+    if (raw > centerSlot) return raw - total;
+    if (raw < -centerSlot) return raw + total;
+    return raw;
+  }
 
   // label offset below each gauge (accounting for the label absolutely positioned)
   const labelOffset = 24;
@@ -345,13 +363,11 @@ function ClusterPanel({
       }} />
 
       {/* Warning indicator dots */}
-      <div className="flex justify-center gap-4 pt-3 pb-1">
+      <div className="flex justify-center gap-3 pt-3 pb-1 px-2 flex-wrap">
         {[
           { color: "#f5a623", label: "Technical",  blink: "1.4s" },
           { color: "#00d4ff", label: "SEO Cluster", blink: "" },
           { color: "#10b981", label: "On-Page",    blink: "2s" },
-          { color: "#a855f7", label: "Pages",      blink: "1.7s" },
-          { color: "#ef4444", label: "Audit",      blink: "1.2s" },
         ].map((dot) => (
           <div key={dot.label} className="flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full" style={{
@@ -366,69 +382,114 @@ function ClusterPanel({
 
       {/* ── PERSPECTIVE ROW ── */}
       <div
-        className="flex items-end justify-center"
+        className="relative mx-auto"
         style={{
-          gap: "4px",
-          paddingBottom: `${labelOffset + 16}px`,
-          paddingTop: "12px",
-          paddingLeft: "8px",
-          paddingRight: "8px",
-          overflowX: "auto",
-          overflowY: "visible",
+          height: 380,
+          width: "100%",
+          maxWidth: 1040,
+          paddingTop: "8px",
+          paddingBottom: `${labelOffset + 8}px`,
+          overflow: "hidden",
         }}
       >
-        {gauges.map((g, idx) => (
-          <div
-            key={g.label}
-            className="flex flex-col items-center flex-shrink-0"
-            style={{ position: "relative" }}
-          >
-            {/* connector line between gauges (not after last) */}
-            {idx < gauges.length - 1 && (
-              <div style={{
-                position: "absolute",
-                right: -(4),
-                top: "50%",
-                width: 4,
-                height: 1,
-                background: "rgba(0,180,255,0.3)",
-                zIndex: 0,
-              }} />
-            )}
+        {gauges.map((g, index) => {
+          const slot = getCircularSlot(index);
+          const distance = Math.abs(slot);
+          const size = getGaugeSize(distance);
+          const isCenter = slot === 0;
+          const isActiveCircle = isCenter;
+          const leftOffset = slot * 138;
+          const topOffset = 258 - size;
 
-            {/* Center bracket decoration */}
-            {g.isCenter && (
-              <div className="flex items-center mb-1.5" style={{ width: g.size * 0.46 }}>
-                <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,transparent,rgba(0,180,255,0.5))" }} />
-                <div className="w-1.5 h-1.5 rounded-full mx-1 flex-shrink-0" style={{ background: "#00d4ff", boxShadow: "0 0 7px #00d4ff" }} />
-                <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,rgba(0,180,255,0.5),transparent)" }} />
-              </div>
-            )}
-
-            <GaugeCanvas
-              score={g.score}
-              size={g.size}
-              isCenter={g.isCenter}
-            />
-
-            {/* label + mini bar below */}
+          return (
             <div
-              className="flex flex-col items-center gap-0.5 mt-1"
-              style={{ position: "absolute", top: g.size + (g.isCenter ? 6 : 2), left: 0, right: 0 }}
+              key={g.key}
+              className="absolute left-1/2 top-0 flex flex-col items-center flex-shrink-0 cursor-pointer transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              style={{
+                width: size,
+                transform: `translateX(calc(-50% + ${leftOffset}px)) translateY(${topOffset}px)`,
+                zIndex: isCenter ? 30 : 20 - distance,
+                opacity: distance > 3 ? 0.22 : 1,
+                filter: isCenter
+                  ? "drop-shadow(0 0 18px rgba(0,180,255,0.35))"
+                  : "drop-shadow(0 0 8px rgba(0,160,220,0.2))",
+              }}
+              onClick={() => setActiveIndex(index)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setActiveIndex(index);
+                }
+              }}
             >
-              <p
-                className="font-bold text-cyan-400/70 uppercase tracking-[1.5px] text-center font-mono leading-tight px-1"
+              {/* connector line between gauges */}
+              {index < gauges.length - 1 && (
+                <div
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-[calc(100%+2px)]"
+                  style={{
+                    width: 138,
+                    height: 1,
+                    background: "rgba(0,180,255,0.15)",
+                    transform: "translateY(-50%)",
+                  }}
+                />
+              )}
+
+              {/* red selection dot */}
+              <button
+                type="button"
+                aria-label={`Focus ${g.label}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveIndex(index);
+                }}
+                className="absolute -top-1 left-1/2 z-20 -translate-x-1/2 rounded-full border border-red-500/90 bg-[#05070c] transition-transform duration-200 hover:scale-110"
                 style={{
-                  fontSize: g.isCenter ? "7.5px" : `${Math.max(5.5, 5.5 + (g.size - 100) * 0.018)}px`,
-                  maxWidth: g.size,
+                  width: 8,
+                  height: 8,
+                  boxShadow: isActiveCircle ? "0 0 10px rgba(255,34,68,0.8)" : "0 0 6px rgba(255,34,68,0.55)",
                 }}
               >
-                {g.label}
-              </p>
-              <MiniBar score={g.score} label={g.bar} />
+                <span className="block w-[2px] h-[2px] rounded-full bg-red-500 mx-auto" />
+              </button>
+
+              {/* Center bracket decoration */}
+              {isCenter && (
+                <div className="flex items-center mb-1.5" style={{ width: size * 0.46 }}>
+                  <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,transparent,rgba(0,180,255,0.5))" }} />
+                  <div className="w-1.5 h-1.5 rounded-full mx-1 flex-shrink-0" style={{ background: "#00d4ff", boxShadow: "0 0 7px #00d4ff" }} />
+                  <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,rgba(0,180,255,0.5),transparent)" }} />
+                </div>
+              )}
+
+              <GaugeCanvas
+                score={g.score}
+                size={size}
+                isCenter={isCenter}
+              />
+
+              {/* label + mini bar below */}
+              <div
+                className="flex flex-col items-center gap-0.5 mt-1"
+                style={{ position: "absolute", top: size + (isCenter ? 6 : 2), left: 0, right: 0 }}
+              >
+                <p
+                  className="font-bold text-cyan-400/70 uppercase tracking-[1.5px] text-center font-mono leading-tight px-1"
+                  style={{
+                    fontSize: isCenter ? "7.5px" : `${Math.max(5.4, 5.2 + (size - 92) * 0.02)}px`,
+                    maxWidth: size,
+                  }}
+                >
+                  {g.label}
+                </p>
+                <MiniBar score={g.score} label={g.bar} />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Bottom trim */}

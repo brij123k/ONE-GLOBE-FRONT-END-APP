@@ -70,6 +70,7 @@ const navSections = [
     title: "Dashboard",
     items: [
       { icon: LayoutDashboard, label: "Overview", path: "/", end: true },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", end: true },
       // { icon: BarChart, label: "Analytics", path: "/analytics" },
       // { icon: Gauge, label: "Performance", path: "/performance" },
     ]
@@ -206,7 +207,8 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-cyan-500/15 bg-[#06101b]/95 backdrop-blur-xl">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-cyan-500/15 bg-[#06101b]/95 
+      ">
         {!collapsed ? (
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-[0_0_0_1px_rgba(0,212,255,0.18)]">
@@ -232,23 +234,10 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
           </Button>
         )}
       </div>
-
-      {/* Search Bar - Only when expanded */}
-      {/* {!collapsed && (
-        <div className="p-3 border-b border-[#e2e0db] bg-white">
-          <div className="flex items-center gap-2 px-2 py-1.5 bg-[#f5f4f1] rounded-lg">
-            <SearchIcon className="w-3.5 h-3.5 text-[#9e9b95]" />
-            <input
-              type="text"
-              placeholder="Search tools..."
-              className="bg-transparent border-none outline-none text-[12px] text-[#1a1917] placeholder-[#9e9b95] w-full"
-            />
-          </div>
-        </div>
-      )} */}
-
       {/* Main Navigation */}
-      <ScrollArea className="flex-1 bg-transparent">
+      <ScrollArea className="flex-1 bg-transparent
+      shadow-[3px_0px_2px_rgba(255,255,255,0.3)] 
+      ">
         <nav className="p-3 space-y-4">
           {navSections.map((section) => (
             <Collapsible
@@ -330,7 +319,8 @@ function AppSidebar({ collapsed, setCollapsed, isMobile, shop }: AppSidebarProps
       </ScrollArea>
 
       {/* Bottom Navigation */}
-      <div className="p-3 border-t border-cyan-500/15 space-y-1 bg-[#06101b]/95 backdrop-blur-xl">
+      <div className="p-3 border-t border-cyan-500/15 space-y-1 bg-[#06101b]/95 
+      shadow-[3px_0px_2px_rgba(255,255,255,0.3)] ">
         {bottomNavItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -465,7 +455,7 @@ function AppHeader({ title, sidebarCollapsed, setSidebarCollapsed, isMobile, sho
   return (
     <header
       className={cn(
-        "sticky top-0 h-16 bg-[#06101b]/90 backdrop-blur-xl supports-[backdrop-filter]:bg-[#06101b]/75 border-b border-cyan-500/15 flex items-center px-4 sm:px-6 z-30 transition-all duration-200",
+        "sticky top-0 h-16 shadow-[0px_3px_2px_rgba(255,255,255,0.3)]  bg-[#06101b]/90 backdrop-blur-xl supports-[backdrop-filter]:bg-[#06101b]/75 border-b border-cyan-500/15 flex items-center px-4 sm:px-6 z-30 transition-all duration-200 ",
         scrolled && "shadow-sm"
       )}
     >
