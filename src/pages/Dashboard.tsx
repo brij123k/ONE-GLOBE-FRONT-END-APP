@@ -256,47 +256,87 @@ export default function Dashboard() {
     return matchesCategory && matchesSearch;
   });
 
+  const popularTools = optimizationTools.filter(tool => tool.popular && !tool.comingSoon);
+
   return (
     <AppLayout>
-      <div className="min-h-screen bg-transparent font-['DM_Sans']">
-        <div className="p-5 md:p-7 space-y-6">
-          <div className="neon-card p-6 md:p-7 overflow-hidden">
-            <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-2xl">
-                <p className="text-[10.5px] font-bold uppercase tracking-[0.3em] text-cyan-300/80 mb-2">
-                  Store Intelligence
-                </p>
-                <h1 className="text-2xl md:text-4xl font-extrabold text-white leading-tight">
-                  Welcome back, {storeDetail.owner || "Store Owner"}
-                </h1>
-                <p className="text-sm md:text-base text-slate-400 mt-3 max-w-xl">
-                  Here’s a live view of your store’s optimization stack, curated in the same neon 3D style as Overview.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="outline" onClick={() => navigate("/")}>Overview</Button>
-                <Button onClick={() => navigate("/products")}>Open Product Tools</Button>
-              </div>
-            </div>
+      <div className="min-h-screen font-['DM_Sans'] bg-[#f5f4f1]">
+        <div className="p-7">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h1 className="text-[22px] font-bold text-[#95BF46]">
+              Welcome back, {storeDetail.owner || 'Store Owner'}
+            </h1>
+            <p className="text-[13.5px] text-[#6b6862] mt-1">
+              Here's an overview of your store's AI optimization status.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* Stats Grid */}
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {stats.map((stat) => (
-              <StatsCard key={stat.label} {...stat} />
+              <div
+                key={stat.label}
+                className="bg-white border border-[#e2e0db] rounded-xl p-5 hover:border-[#6046ff] transition-all hover:-translate-y-0.5"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-[#ede9ff] rounded-lg">
+                    <stat.icon className="w-5 h-5 text-[#6046ff]" />
+                  </div>
+                  <span className={cn(
+                    "text-[12px] font-medium px-2 py-1 rounded-full",
+                    stat.changeType === 'positive' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  )}>
+                    {stat.change}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-[22px] font-bold text-[#1a1917]">{stat.value}</h3>
+                  <p className="text-[13px] text-[#6b6862] mt-1">{stat.label}</p>
+                </div>
+              </div>
             ))}
-          </div>
+          </div> */}
 
-          <div className="neon-card p-4 md:p-5">
-            <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+          {/* Quick Actions / Popular Tools */}
+          {/* <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-[#1a1917]">Quick Actions</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {popularTools.slice(0, 4).map((tool) => (
+                <div
+                  key={tool.title}
+                  onClick={() => navigate(tool.path)}
+                  className="bg-white border border-[#e2e0db] rounded-xl p-5 cursor-pointer hover:border-[#6046ff] hover:-translate-y-0.5 transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-[#ede9ff] rounded-lg group-hover:bg-[#6046ff] transition-colors">
+                      <tool.icon className="w-5 h-5 text-[#6046ff] group-hover:text-white" />
+                    </div>
+                    <span className="text-[11px] font-medium text-[#6046ff] bg-[#ede9ff] px-2 py-0.5 rounded-full">
+                      Popular
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-[#1a1917] mb-1">{tool.title}</h3>
+                  <p className="text-[12px] text-[#6b6862] line-clamp-2">{tool.description}</p>
+                </div>
+              ))}
+            </div>
+          </div> */}
+
+          {/* Search and Filter Bar */}
+          <div className="bg-white border border-[#e2e0db] rounded-xl p-5 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 rounded-xl border border-cyan-500/15 bg-[#09111d] px-3 py-2.5">
-                  <Search className="w-4 h-4 text-cyan-300" />
+                <div className="flex items-center gap-2 border border-[#e2e0db] rounded-lg px-3 py-2 bg-[#f5f4f1]">
+                  <Search className="w-4 h-4 text-[#9e9b95]" />
                   <input
                     type="text"
                     placeholder="Search optimization tools..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-transparent border-none outline-none text-sm text-slate-100 placeholder:text-slate-500 flex-1"
+                    className="bg-transparent border-none outline-none text-[13px] text-[#1a1917] placeholder-[#9e9b95] flex-1"
                   />
                 </div>
               </div>
@@ -306,10 +346,10 @@ export default function Dashboard() {
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all border",
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all",
                       selectedCategory === category.id
-                        ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/20"
-                        : "bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-slate-100 hover:border-cyan-500/15"
+                        ? "bg-[#95BF46] text-white"
+                        : "bg-[#f5f4f1] text-[#6b6862] hover:bg-[#ede9ff] hover:text-[#95BF46]"
                     )}
                   >
                     <category.icon className="w-4 h-4" />
@@ -320,40 +360,39 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-100">
-                  {selectedCategory === "all"
-                    ? "All Optimization Tools"
-                    : categories.find((c) => c.id === selectedCategory)?.label}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {filteredTools.length} tools available
-                </p>
-              </div>
+          {/* Tools Grid */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-[#1a1917]">
+                {selectedCategory === 'all' ? 'All Optimization Tools' : 
+                 categories.find(c => c.id === selectedCategory)?.label}
+              </h2>
+              <span className="text-[13px] text-[#6b6862]">
+                {filteredTools.length} tools available
+              </span>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTools.map((tool) => (
                 <OptimizationCard key={tool.title} {...tool} />
               ))}
             </div>
           </div>
 
+          {/* Empty State */}
           {filteredTools.length === 0 && (
-            <div className="neon-card text-center py-16 px-6">
-              <Sparkles className="w-16 h-16 text-cyan-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white">No tools found</h3>
-              <p className="text-sm text-slate-400 mt-2 mb-6 max-w-md mx-auto">
-                Try adjusting your search or filter to find what you&apos;re looking for.
+            <div className="text-center py-16 bg-white border border-[#e2e0db] rounded-xl">
+              <Sparkles className="w-16 h-16 text-[#9e9b95] mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-[#1a1917]">No tools found</h3>
+              <p className="text-sm text-[#6b6862] mt-2 mb-6 max-w-md mx-auto">
+                Try adjusting your search or filter to find what you're looking for.
               </p>
-              <Button
-                variant="outline"
+              <Button 
+                variant="outline" 
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedCategory("all");
                 }}
+                className="border-[#e2e0db] hover:border-[#95BF46] hover:text-[#95BF46]"
               >
                 Clear all filters
               </Button>

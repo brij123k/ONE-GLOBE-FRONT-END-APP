@@ -3,7 +3,6 @@ export const BASE_URL = "https://starfish-app-djdfs.ondigitalocean.app"
 const ApiConfig = {
   baseUrl: BASE_URL,
   // shopify products
-  getShopStartup: `${BASE_URL}/api/shop/startup`,
   getProducts: `${BASE_URL}/api/shop/products`,
   getVendors: `${BASE_URL}/api/shop/vendors`,
   getCollections: `${BASE_URL}/api/shop/collections`,
